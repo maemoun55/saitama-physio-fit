@@ -1,0 +1,32 @@
+{
+  "name": "saitama-physio-fit",
+  "version": "1.0.0",
+  "description": "Professional booking system for Saitama Physio Fit with Supabase integration",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python -m http.server 3000",
+    "build": "echo 'Static site - no build required'",
+    "start": "echo 'Static site deployed'"
+  },
+  "keywords": [
+    "booking-system",
+    "physiotherapy",
+    "fitness",
+    "supabase",
+    "javascript",
+    "html",
+    "css"
+  ],
+  "author": "Saitama Physio Fit",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/saitama-physio-fit.git"
+  },
+  "homepage": "https://saitama-physio-fit.vercel.app",
+  "dependencies": {},
+  "devDependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
