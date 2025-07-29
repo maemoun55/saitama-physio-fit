@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Supabase Configuration
 const SUPABASE_URL = 'https://rbfephzobczjludtfnej.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJiZmVwaHpvYmN6amx1ZHRmbmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2OTg2NDUsImV4cCI6MjA2OTI3NDY0NX0.09_Z5kAr47z-MxXJg00mYVDNyRua47qns9jZntwMx8M';
+const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJiZmVwaHpvYmN6amx1ZHRmbmVqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzY5ODY0NSwiZXhwIjoyMDY5Mjc0NjQ1fQ.Jjpm8h3hEqKtIxIIP4QJgnt5UpGb7s3JEUSYmmkerbc';
 
 // Supabase Storage Configuration
 const SUPABASE_STORAGE_URL = 'https://rbfephzobczjludtfnej.supabase.co/storage/v1/s3';
@@ -80,8 +81,8 @@ const STORAGE_BUCKETS = {
     DOCUMENTS: 'documents'
 };
 
-// Initialize Supabase client only if credentials are provided
-let supabase;
+// Initialize Supabase clients - service role for admin operations, anon for client operations
+let supabase, supabaseAdmin;
 if (typeof window !== 'undefined' && window.supabase && 
     SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
     try {
@@ -89,6 +90,24 @@ if (typeof window !== 'undefined' && window.supabase &&
         if (typeof window.supabase.createClient === 'function') {
             // Supabase v2.x initialization
             console.log('Using Supabase v2.x API');
+            
+            // Admin client with service role (full access)
+            supabaseAdmin = window.supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+                auth: {
+                    autoRefreshToken: false,
+                    persistSession: false
+                },
+                global: {
+                    headers: {
+                        'apikey': SUPABASE_SERVICE_KEY
+                    },
+                    fetch: {
+                        timeout: 15000
+                    }
+                }
+            });
+            
+            // Client with anon key (for user operations)
             supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
                 auth: {
                     autoRefreshToken: true,
@@ -99,13 +118,24 @@ if (typeof window !== 'undefined' && window.supabase &&
                         'apikey': SUPABASE_ANON_KEY
                     },
                     fetch: {
-                        timeout: 15000 // 15 seconds timeout
+                        timeout: 15000
                     }
                 }
             });
         } else if (typeof window.supabase === 'function') {
             // Supabase v1.x initialization
             console.log('Using Supabase v1.x API');
+            
+            // Admin client with service role
+            supabaseAdmin = window.supabase(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+                autoRefreshToken: false,
+                persistSession: false,
+                headers: {
+                    'apikey': SUPABASE_SERVICE_KEY
+                }
+            });
+            
+            // Client with anon key
             supabase = window.supabase(SUPABASE_URL, SUPABASE_ANON_KEY, {
                 autoRefreshToken: true,
                 persistSession: true,
@@ -117,11 +147,12 @@ if (typeof window !== 'undefined' && window.supabase &&
             console.error('Error: Supabase library not properly loaded. Check version compatibility.');
             throw new Error('Supabase client initialization failed: API not available');
         }
-        console.log('Supabase client initialized successfully');
+        console.log('Supabase clients initialized successfully (admin + client)');
     } catch (error) {
-        console.error('Error initializing Supabase client:', error);
+        console.error('Error initializing Supabase clients:', error);
         // Set supabase to null to ensure we fall back to localStorage
         supabase = null;
+        supabaseAdmin = null;
     }
 }
 
@@ -425,16 +456,17 @@ class BookingApp {
     }
 
     initializeStorageManager() {
-        if (supabase) {
-            this.storageManager = new StorageManager(supabase);
-            console.log('✅ Storage Manager initialized');
+        if (supabaseAdmin) {
+            // Use admin client for storage operations (full access)
+            this.storageManager = new StorageManager(supabaseAdmin);
+            console.log('✅ Storage Manager initialized with admin access');
             
             // Initialize storage buckets if Supabase is ready
             if (this.supabaseReady) {
                 this.storageManager.initializeBuckets();
             }
         } else {
-            console.warn('⚠️ Storage Manager not initialized - Supabase client unavailable');
+            console.warn('⚠️ Storage Manager not initialized - Supabase admin client unavailable');
         }
     }
     
@@ -667,7 +699,7 @@ class BookingApp {
             console.log('Attempting to load data from Supabase...');
             
             // Check Supabase connection first
-            if (!this.supabaseReady) {
+            if (!this.supabaseReady || !supabaseAdmin) {
                 console.warn('Supabase connection not ready, falling back to localStorage');
                 this.loadFromLocalStorage();
                 return;
@@ -682,13 +714,13 @@ class BookingApp {
                 let usersResult;
                 
                 if (isV1) {
-                    // Supabase v1.x API
-                    usersResult = await supabase
+                    // Supabase v1.x API with admin client
+                    usersResult = await supabaseAdmin
                         .from('users')
                         .select('*');
                 } else {
-                    // Supabase v2.x API
-                    usersResult = await supabase
+                    // Supabase v2.x API with admin client
+                    usersResult = await supabaseAdmin
                         .from('users')
                         .select('*');
                 }
@@ -718,13 +750,13 @@ class BookingApp {
                 let coursesResult;
                 
                 if (isV1) {
-                    // Supabase v1.x API
-                    coursesResult = await supabase
+                    // Supabase v1.x API with admin client
+                    coursesResult = await supabaseAdmin
                         .from('courses')
                         .select('*');
                 } else {
-                    // Supabase v2.x API
-                    coursesResult = await supabase
+                    // Supabase v2.x API with admin client
+                    coursesResult = await supabaseAdmin
                         .from('courses')
                         .select('*');
                 }
@@ -749,13 +781,13 @@ class BookingApp {
                 let bookingsResult;
                 
                 if (isV1) {
-                    // Supabase v1.x API
-                    bookingsResult = await supabase
+                    // Supabase v1.x API with admin client
+                    bookingsResult = await supabaseAdmin
                         .from('bookings')
                         .select('*');
                 } else {
-                    // Supabase v2.x API
-                    bookingsResult = await supabase
+                    // Supabase v2.x API with admin client
+                    bookingsResult = await supabaseAdmin
                         .from('bookings')
                         .select('*');
                 }
@@ -1313,7 +1345,7 @@ class BookingApp {
             courseTime: course?.time
         };
         
-        if (this.supabaseReady) {
+        if (this.supabaseReady && supabaseAdmin) {
             try {
                 // Only send database-compatible fields to Supabase
                 const supabaseBooking = {
@@ -1323,7 +1355,7 @@ class BookingApp {
                     timestamp: new Date().toISOString()
                 };
                 
-                const { data, error } = await supabase
+                const { data, error } = await supabaseAdmin
                     .from('bookings')
                     .insert([supabaseBooking])
                     .select()
@@ -1778,9 +1810,9 @@ class BookingApp {
         
         booking.status = newStatus;
         
-        if (this.supabaseReady) {
+        if (this.supabaseReady && supabaseAdmin) {
             try {
-                const { error } = await supabase
+                const { error } = await supabaseAdmin
                     .from('bookings')
                     .update({ status: newStatus })
                     .eq('id', bookingId);
@@ -1996,7 +2028,7 @@ class BookingApp {
         
         console.log('Adding user. Supabase ready:', this.supabaseReady);
         
-        if (this.supabaseReady) {
+        if (this.supabaseReady && supabaseAdmin) {
             try {
                 // Create clean object with only database column names
                 const supabaseUser = {
@@ -2010,7 +2042,7 @@ class BookingApp {
                 };
                 
                 console.log('Attempting to insert user into Supabase:', supabaseUser);
-                const { data, error } = await supabase
+                const { data, error } = await supabaseAdmin
                     .from('users')
                     .insert([supabaseUser])
                     .select()
@@ -2097,11 +2129,11 @@ class BookingApp {
         if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
             console.log('User confirmed deletion');
             
-            if (this.supabaseReady) {
+            if (this.supabaseReady && supabaseAdmin) {
                 try {
                     console.log('Deleting user bookings from Supabase...');
                     // Delete user's bookings first
-                    const { error: bookingsError } = await supabase
+                    const { error: bookingsError } = await supabaseAdmin
                         .from('bookings')
                         .delete()
                         .eq('user_id', userId);
@@ -2114,7 +2146,7 @@ class BookingApp {
                     
                     console.log('Deleting user from Supabase...');
                     // Delete user
-                    const { error: userError } = await supabase
+                    const { error: userError } = await supabaseAdmin
                         .from('users')
                         .delete()
                         .eq('id', userId);
