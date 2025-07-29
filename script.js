@@ -1331,10 +1331,24 @@ class BookingApp {
                 
                 if (error) throw error;
                 
-                // Add compatibility fields
+                // Add compatibility fields and ensure ID is set
                 data.userId = data.user_id;
                 data.courseId = data.course_id;
+                data.id = data.id || Date.now(); // Ensure ID exists
+                
+                // Add course data for display
+                data.courseData = course ? {
+                    name: course.name,
+                    dateDisplay: course.dateDisplay,
+                    time: course.time,
+                    date: course.date
+                } : null;
+                data.courseName = course?.name;
+                data.courseDate = course?.dateDisplay;
+                data.courseTime = course?.time;
+                
                 this.bookings.push(data);
+                console.log('Booking successfully saved to Supabase:', data);
             } catch (error) {
                 console.error('Error creating booking in Supabase:', error);
                 // Fallback to localStorage
@@ -1434,6 +1448,12 @@ class BookingApp {
     renderAllBookings() {
         const allBookings = document.getElementById('allBookings');
         
+        // Debug logging
+        console.log('Rendering all bookings. Total bookings:', this.bookings.length);
+        console.log('Bookings data:', this.bookings);
+        console.log('Courses data:', this.courses.length, 'courses');
+        console.log('Users data:', this.users.length, 'users');
+        
         if (this.bookings.length === 0) {
             allBookings.innerHTML = `
                 <div class="empty-state">
@@ -1457,6 +1477,9 @@ class BookingApp {
             // Skip rendering if course or user not found
             if (!course || !user) {
                 console.warn(`Missing data for booking ${booking.id}: course=${!!course}, user=${!!user}`);
+                console.warn('Booking details:', booking);
+                if (!course) console.warn('Course not found for courseId:', booking.courseId, 'Available courses:', this.courses.map(c => c.id));
+                if (!user) console.warn('User not found for userId:', booking.userId, 'Available users:', this.users.map(u => u.id));
                 return;
             }
             
