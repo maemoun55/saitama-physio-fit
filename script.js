@@ -144,7 +144,12 @@ class BookingApp {
                 .from('bookings')
                 .select('*');
             if (bookingsError) throw bookingsError;
-            this.bookings = bookings || [];
+            // Add compatibility fields for bookings
+            this.bookings = (bookings || []).map(booking => ({
+                ...booking,
+                userId: booking.user_id,
+                courseId: booking.course_id
+            }));
 
         } catch (error) {
             console.error('Error loading data from Supabase:', error);
