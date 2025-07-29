@@ -32,7 +32,21 @@ class BookingApp {
         await this.loadData();
         await this.initializeDefaultData();
         this.setupEventListeners();
-        this.showLoginScreen();
+        
+        // Check for existing session
+        const savedUser = localStorage.getItem('saitama_current_user');
+        if (savedUser) {
+            try {
+                this.currentUser = JSON.parse(savedUser);
+                await this.showMainScreen();
+            } catch (error) {
+                console.error('Error restoring session:', error);
+                localStorage.removeItem('saitama_current_user');
+                this.showLoginScreen();
+            }
+        } else {
+            this.showLoginScreen();
+        }
     }
 
     async initializeSupabase() {
@@ -385,6 +399,8 @@ class BookingApp {
         
         if (user) {
             this.currentUser = user;
+            // Save session to localStorage
+            localStorage.setItem('saitama_current_user', JSON.stringify(user));
             await this.showMainScreen();
             return true;
         }
@@ -393,6 +409,8 @@ class BookingApp {
 
     logout() {
         this.currentUser = null;
+        // Clear session from localStorage
+        localStorage.removeItem('saitama_current_user');
         this.showLoginScreen();
     }
 
