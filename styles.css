@@ -47,6 +47,60 @@ body {
     outline: none;
 }
 
+/* Notification System */
+.notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    width: 300px;
+}
+
+.notification {
+    background-color: #fff;
+    border-left: 4px solid var(--primary-blue);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    max-width: 100%;
+}
+
+.notification.error {
+    border-left-color: var(--error-red);
+}
+
+.notification.warning {
+    border-left-color: var(--warning-orange);
+}
+
+.notification.success {
+    border-left-color: var(--success-green);
+}
+
+.notification.hidden {
+    opacity: 0;
+    transform: translateX(100%);
+    pointer-events: none;
+}
+
+.notification-close {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 20px;
+    margin-left: 10px;
+}
+
+.notification-close:hover {
+    color: #333;
+}
+
 /* Screen Management */
 .screen {
     display: none;

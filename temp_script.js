@@ -1,72 +1,6 @@
 // Saitama Physio Fit Booking System
 // Data Management and Application Logic with Supabase Integration
 
-// Notification System
-class NotificationSystem {
-    constructor() {
-        this.container = document.getElementById('notificationSystem');
-        this.content = document.getElementById('notificationContent');
-        this.message = document.getElementById('notificationMessage');
-        this.closeBtn = document.getElementById('notificationClose');
-        
-        // Initialize event listeners
-        this.initEventListeners();
-    }
-    
-    initEventListeners() {
-        // Close button event
-        this.closeBtn.addEventListener('click', () => this.hideNotification());
-        
-        // Listen for custom events
-        document.addEventListener('supabase-storage-policy-error', () => {
-            this.showNotification(
-                'Storage bucket creation failed due to security policy restrictions. Some file upload features may be limited.', 
-                'warning',
-                10000
-            );
-        });
-    }
-    
-    showNotification(message, type = 'info', duration = 5000) {
-        // Set message
-        this.message.textContent = message;
-        
-        // Reset classes and add type class
-        this.content.className = 'notification';
-        if (['info', 'success', 'warning', 'error'].includes(type)) {
-            this.content.classList.add(type);
-        }
-        
-        // Show notification
-        setTimeout(() => {
-            this.content.classList.remove('hidden');
-        }, 10);
-        
-        // Auto-hide after duration
-        if (duration > 0) {
-            this.autoHideTimeout = setTimeout(() => {
-                this.hideNotification();
-            }, duration);
-        }
-    }
-    
-    hideNotification() {
-        // Clear auto-hide timeout if exists
-        if (this.autoHideTimeout) {
-            clearTimeout(this.autoHideTimeout);
-        }
-        
-        // Hide notification
-        this.content.classList.add('hidden');
-    }
-}
-
-// Initialize notification system when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.notificationSystem = new NotificationSystem();
-});
-
-
 // Supabase Configuration
 const SUPABASE_URL = 'https://rbfephzobczjludtfnej.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJiZmVwaHpvYmN6amx1ZHRmbmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2OTg2NDUsImV4cCI6MjA2OTI3NDY0NX0.09_Z5kAr47z-MxXJg00mYVDNyRua47qns9jZntwMx8M';
@@ -85,43 +19,24 @@ let supabase;
 if (typeof window !== 'undefined' && window.supabase && 
     SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
     try {
-        // Check if we're using Supabase v1.x or v2.x
-        if (typeof window.supabase.createClient === 'function') {
-            // Supabase v2.x initialization
-            console.log('Using Supabase v2.x API');
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-                auth: {
-                    autoRefreshToken: true,
-                    persistSession: true
-                },
-                global: {
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY
-                    },
-                    fetch: {
-                        timeout: 15000 // 15 seconds timeout
-                    }
-                }
-            });
-        } else if (typeof window.supabase === 'function') {
-            // Supabase v1.x initialization
-            console.log('Using Supabase v1.x API');
-            supabase = window.supabase(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        // Create the Supabase client with additional options
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
                 autoRefreshToken: true,
-                persistSession: true,
+                persistSession: true
+            },
+            global: {
                 headers: {
                     'apikey': SUPABASE_ANON_KEY
+                },
+                fetch: {
+                    timeout: 15000 // 15 seconds timeout
                 }
-            });
-        } else {
-            console.error('Error: Supabase library not properly loaded. Check version compatibility.');
-            throw new Error('Supabase client initialization failed: API not available');
-        }
+            }
+        });
         console.log('Supabase client initialized successfully');
     } catch (error) {
         console.error('Error initializing Supabase client:', error);
-        // Set supabase to null to ensure we fall back to localStorage
-        supabase = null;
     }
 }
 
@@ -274,114 +189,32 @@ class StorageManager {
                 return;
             }
 
-            // Detect Supabase version
-            const isV1 = typeof window.supabase === 'function';
-            console.log(`Using Supabase ${isV1 ? 'v1.x' : 'v2.x'} API for bucket operations`);
-
-            // Skip bucket creation if we're getting row-level security policy errors
-            // These errors typically mean the user doesn't have permission to create buckets
-            // and the buckets should be created by an admin in the Supabase dashboard
-            let skipBucketCreation = false;
-            let securityPolicyErrorDetected = false;
-            
             for (const [key, bucketName] of Object.entries(STORAGE_BUCKETS)) {
                 try {
-                    // Check for row-level security policy errors in previous operations
-                    if (skipBucketCreation) {
-                        console.warn(`Skipping bucket creation for ${bucketName} due to previous security policy errors`);
-                        continue;
-                    }
-                    
                     // Try to get bucket info (this will fail if bucket doesn't exist)
-                    let bucketResult;
-                    try {
-                        if (isV1) {
-                            // Supabase v1.x API
-                            bucketResult = await this.supabase.storage.getBucket(bucketName);
+                    const { data, error } = await this.supabase.storage.getBucket(bucketName);
+                    
+                    if (error && error.message.includes('not found')) {
+                        // Bucket doesn't exist, create it
+                        console.log(`Creating storage bucket: ${bucketName}`);
+                        const { data: createData, error: createError } = await this.supabase.storage
+                            .createBucket(bucketName, {
+                                public: true,
+                                allowedMimeTypes: key === 'PROFILES' || key === 'COURSES' ? this.allowedImageTypes : this.allowedDocumentTypes,
+                                fileSizeLimit: this.maxFileSize
+                            });
+                        
+                        if (createError) {
+                            console.error(`Failed to create bucket ${bucketName}:`, createError);
                         } else {
-                            // Supabase v2.x API
-                            bucketResult = await this.supabase.storage.getBucket(bucketName);
+                            console.log(`✅ Bucket ${bucketName} created successfully`);
                         }
-                        
-                        const { data, error } = bucketResult;
-                        
-                        if (error && error.message && error.message.includes('not found')) {
-                            // Bucket doesn't exist, try to create it
-                            console.log(`Creating storage bucket: ${bucketName}`);
-                            
-                            let createResult;
-                            try {
-                                if (isV1) {
-                                    // Supabase v1.x API
-                                    createResult = await this.supabase.storage.createBucket(bucketName, {
-                                        public: true
-                                    });
-                                } else {
-                                    // Supabase v2.x API
-                                    createResult = await this.supabase.storage.createBucket(bucketName, {
-                                        public: true,
-                                        allowedMimeTypes: key === 'PROFILES' || key === 'COURSES' ? this.allowedImageTypes : this.allowedDocumentTypes,
-                                        fileSizeLimit: this.maxFileSize
-                                    });
-                                }
-                                
-                                const { data: createData, error: createError } = createResult;
-                                
-                                if (createError) {
-                                    console.error(`Failed to create bucket ${bucketName}:`, createError);
-                                    
-                                    // Check for row-level security policy errors
-                                    if (createError.message && createError.message.includes('row-level security policy')) {
-                                        securityPolicyErrorDetected = true;
-                                        console.warn('Row-level security policy error detected. You may need admin privileges to create buckets.');
-                                        skipBucketCreation = true;
-                                    }
-                                } else {
-                                    console.log(`✅ Bucket ${bucketName} created successfully`);
-                                }
-                            } catch (createBucketError) {
-                                console.error(`Error creating bucket ${bucketName}:`, createBucketError);
-                                
-                                // Check for row-level security policy errors
-                                if (createBucketError.message && createBucketError.message.includes('row-level security policy')) {
-                                    securityPolicyErrorDetected = true;
-                                    console.warn('Row-level security policy error detected. You may need admin privileges to create buckets.');
-                                    skipBucketCreation = true;
-                                }
-                            }
-                        } else if (!error) {
-                            console.log(`✅ Bucket ${bucketName} already exists`);
-                        }
-                    } catch (bucketError) {
-                        console.error(`Error with bucket ${bucketName}:`, bucketError);
-                        
-                        // Check for row-level security policy errors
-                        if (bucketError.message && bucketError.message.includes('row-level security policy')) {
-                            securityPolicyErrorDetected = true;
-                            console.warn('Row-level security policy error detected. You may need admin privileges to create buckets.');
-                            skipBucketCreation = true;
-                        }
+                    } else if (!error) {
+                        console.log(`✅ Bucket ${bucketName} already exists`);
                     }
-                } catch (error) {
-                    console.error(`General error with bucket ${bucketName}:`, error);
+                } catch (bucketError) {
+                    console.error(`Error with bucket ${bucketName}:`, bucketError);
                 }
-            }
-            
-            // Display a user-friendly message if security policy errors were detected
-            if (securityPolicyErrorDetected) {
-                console.info('-----------------------------------------------------------');
-                console.info('STORAGE BUCKET CREATION NOTICE:');
-                console.info('Row-level security policy errors were detected when trying to create storage buckets.');
-                console.info('This is normal if you do not have admin privileges in the Supabase project.');
-                console.info('The application will continue to function, but file upload features may be limited.');
-                console.info('To resolve this:');
-                console.info('1. Have an admin create the required buckets in the Supabase dashboard, or');
-                console.info('2. Adjust the row-level security policies to allow bucket creation for your role.');
-                console.info('-----------------------------------------------------------');
-                
-                // Emit an event that can be used to show a notification to the user
-                const event = new CustomEvent('supabase-storage-policy-error');
-                document.dispatchEvent(event);
             }
         } catch (error) {
             console.error('Error initializing storage buckets:', error);
@@ -534,15 +367,6 @@ class BookingApp {
         console.log('Supabase client initialized:', !!supabase);
         
         try {
-            // Detect Supabase version
-            const isV1 = typeof window.supabase === 'function';
-            console.log(`Using Supabase ${isV1 ? 'v1.x' : 'v2.x'} API for queries`);
-            
-            // For v1.x, we don't need to check for supabase.from as it's always available
-            if (!isV1 && (!supabase.from || typeof supabase.from !== 'function')) {
-                throw new Error('TypeError: Supabase client methods are not available. Check Supabase library version.');
-            }
-            
             // Test connection with a simpler query first
             console.log('Attempting to connect to Supabase...');
             
@@ -571,43 +395,24 @@ class BookingApp {
                 console.log('✅ Supabase API is reachable');
                 
                 // Now try to query the users table
-                try {
-                    let result;
-                    if (isV1) {
-                        // Supabase v1.x API
-                        result = await supabase
-                            .from('users')
-                            .select('*')
-                            .limit(1);
-                    } else {
-                        // Supabase v2.x API
-                        result = await supabase.from('users').select('*', { count: 'exact', head: true });
-                    }
-                    
-                    console.log('Supabase test result:', result);
-                    
-                    if (!result.error) {
-                        this.supabaseReady = true;
-                        console.log('✅ Supabase connection established successfully');
-                    } else {
-                        console.error('❌ Supabase tables not accessible:', result.error);
-                        console.log('Error details:', {
-                            message: result.error.message,
-                            details: result.error.details,
-                            hint: result.error.hint,
-                            code: result.error.code
-                        });
-                        console.log('This might be because:');
-                        console.log('1. Tables have not been created in Supabase yet');
-                        console.log('2. Row Level Security (RLS) is blocking access');
-                        console.log('3. API key permissions are insufficient');
-                        console.log('Falling back to localStorage mode');
-                        this.supabaseReady = false;
-                    }
-                } catch (tableError) {
-                    console.error('❌ Supabase table query error:', tableError);
-                    console.log('Error type:', tableError.name);
-                    console.log('Error message:', tableError.message);
+                const { data, error, count } = await supabase.from('users').select('*', { count: 'exact', head: true });
+                console.log('Supabase test result:', { data, error });
+                
+                if (!error) {
+                    this.supabaseReady = true;
+                    console.log('✅ Supabase connection established successfully');
+                } else {
+                    console.error('❌ Supabase tables not accessible:', error);
+                    console.log('Error details:', {
+                        message: error.message,
+                        details: error.details,
+                        hint: error.hint,
+                        code: error.code
+                    });
+                    console.log('This might be because:');
+                    console.log('1. Tables have not been created in Supabase yet');
+                    console.log('2. Row Level Security (RLS) is blocking access');
+                    console.log('3. API key permissions are insufficient');
                     console.log('Falling back to localStorage mode');
                     this.supabaseReady = false;
                 }
@@ -620,12 +425,7 @@ class BookingApp {
             console.error('❌ Supabase connection failed:', error);
             console.log('Error type:', error.name);
             console.log('Error message:', error.message);
-            if (error.message && error.message.includes('TypeError')) {
-                console.log('🔍 TypeError detected. This usually means:');
-                console.log('1. Incompatible Supabase library version');
-                console.log('2. Supabase client was not properly initialized');
-                console.log('3. The Supabase library is missing required methods');
-            } else if (error.message && error.message.includes('ERR_ABORTED')) {
+            if (error.message && error.message.includes('ERR_ABORTED')) {
                 console.log('🔍 Network request was aborted. This usually means:');
                 console.log('1. CORS policy is blocking the request');
                 console.log('2. The Supabase project is paused or doesn\'t exist');
@@ -673,27 +473,11 @@ class BookingApp {
                 return;
             }
             
-            // Detect Supabase version
-            const isV1 = typeof window.supabase === 'function';
-            console.log(`Using Supabase ${isV1 ? 'v1.x' : 'v2.x'} API for data loading`);
-            
             // Load users with error handling
             try {
-                let usersResult;
-                
-                if (isV1) {
-                    // Supabase v1.x API
-                    usersResult = await supabase
-                        .from('users')
-                        .select('*');
-                } else {
-                    // Supabase v2.x API
-                    usersResult = await supabase
-                        .from('users')
-                        .select('*');
-                }
-                
-                const { data: users, error: usersError } = usersResult;
+                const { data: users, error: usersError } = await supabase
+                    .from('users')
+                    .select('*');
                     
                 if (usersError) {
                     console.error('Error loading users:', usersError);
@@ -715,21 +499,9 @@ class BookingApp {
 
             // Load courses with error handling
             try {
-                let coursesResult;
-                
-                if (isV1) {
-                    // Supabase v1.x API
-                    coursesResult = await supabase
-                        .from('courses')
-                        .select('*');
-                } else {
-                    // Supabase v2.x API
-                    coursesResult = await supabase
-                        .from('courses')
-                        .select('*');
-                }
-                
-                const { data: courses, error: coursesError } = coursesResult;
+                const { data: courses, error: coursesError } = await supabase
+                    .from('courses')
+                    .select('*');
                     
                 if (coursesError) {
                     console.error('Error loading courses:', coursesError);
@@ -746,21 +518,9 @@ class BookingApp {
 
             // Load bookings with error handling
             try {
-                let bookingsResult;
-                
-                if (isV1) {
-                    // Supabase v1.x API
-                    bookingsResult = await supabase
-                        .from('bookings')
-                        .select('*');
-                } else {
-                    // Supabase v2.x API
-                    bookingsResult = await supabase
-                        .from('bookings')
-                        .select('*');
-                }
-                
-                const { data: bookings, error: bookingsError } = bookingsResult;
+                const { data: bookings, error: bookingsError } = await supabase
+                    .from('bookings')
+                    .select('*');
                     
                 if (bookingsError) {
                     console.error('Error loading bookings:', bookingsError);
@@ -815,21 +575,8 @@ class BookingApp {
         console.log('Attempting to save data to Supabase...');
         
         try {
-            // Detect Supabase version
-            const isV1 = typeof window.supabase === 'function';
-            console.log(`Using Supabase ${isV1 ? 'v1.x' : 'v2.x'} API for saving data`);
-            
             // Note: In a production app, you would implement proper upsert operations here
             // This is a simplified version for demonstration purposes
-            
-            // Here you would implement the actual save operations using the appropriate API version
-            // For example:
-            // if (isV1) {
-            //     // Supabase v1.x API for saving users, courses, bookings
-            // } else {
-            //     // Supabase v2.x API for saving users, courses, bookings
-            // }
-            
             console.log('Data saved to Supabase successfully');
             
             // Emit an event that data was saved successfully
@@ -892,27 +639,12 @@ class BookingApp {
                 role: user.role
             }));
             
-            // Detect Supabase version
-            const isV1 = typeof window.supabase === 'function';
-            console.log(`Using Supabase ${isV1 ? 'v1.x' : 'v2.x'} API for inserting users`);
-            
-            let result;
-            if (isV1) {
-                // Supabase v1.x API
-                result = await supabase
-                    .from('users')
-                    .insert(supabaseUsers);
-            } else {
-                // Supabase v2.x API
-                result = await supabase
-                    .from('users')
-                    .insert(supabaseUsers)
-                    .select();
-            }
-            
-            const { data, error } = result;
+            const { data, error } = await supabase
+                .from('users')
+                .insert(supabaseUsers)
+                .select();
             if (error) throw error;
-            this.users = data || supabaseUsers; // Use inserted data if available, otherwise use the input data
+            this.users = data;
         } catch (error) {
             console.error('Error inserting default users:', error);
             // Fallback to localStorage format
@@ -936,27 +668,12 @@ class BookingApp {
                 day_of_week: course.day_of_week
             }));
             
-            // Detect Supabase version
-            const isV1 = typeof window.supabase === 'function';
-            console.log(`Using Supabase ${isV1 ? 'v1.x' : 'v2.x'} API for inserting courses`);
-            
-            let result;
-            if (isV1) {
-                // Supabase v1.x API
-                result = await supabase
-                    .from('courses')
-                    .insert(supabaseCourses);
-            } else {
-                // Supabase v2.x API
-                result = await supabase
-                    .from('courses')
-                    .insert(supabaseCourses)
-                    .select();
-            }
-            
-            const { data, error } = result;
+            const { data, error } = await supabase
+                .from('courses')
+                .insert(supabaseCourses)
+                .select();
             if (error) throw error;
-            this.courses = data || supabaseCourses; // Use inserted data if available, otherwise use the input data
+            this.courses = data;
         } catch (error) {
             console.error('Error inserting default courses:', error);
             this.courses = courses;
