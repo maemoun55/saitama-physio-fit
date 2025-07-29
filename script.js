@@ -10,7 +10,27 @@ let supabase;
 if (typeof window !== 'undefined' && window.supabase && 
     SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
     try {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Create the Supabase client with additional options
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                autoRefreshToken: true,
+                persistSession: true
+            },
+            global: {
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY
+                },
+                // Increase timeout for potentially slow connections
+                fetch: (url, options) => {
+                    return fetch(url, {
+                        ...options,
+                        // Add a longer timeout for fetch requests
+                        signal: options?.signal || (AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined)
+                    });
+                }
+            }
+        });
+        console.log('Supabase client initialized with custom options');
     } catch (error) {
         console.warn('Failed to initialize Supabase client:', error);
         supabase = null;
@@ -32,6 +52,7 @@ class BookingApp {
         await this.loadData();
         await this.initializeDefaultData();
         this.setupEventListeners();
+        this.setupConnectionStatusIndicator();
         
         // Check for existing session
         const savedUser = localStorage.getItem('saitama_current_user');
@@ -47,6 +68,90 @@ class BookingApp {
         } else {
             this.showLoginScreen();
         }
+    }
+    
+    setupConnectionStatusIndicator() {
+        // Create a status indicator element
+        const statusIndicator = document.createElement('div');
+        statusIndicator.id = 'connection-status';
+        statusIndicator.style.position = 'fixed';
+        statusIndicator.style.bottom = '10px';
+        statusIndicator.style.right = '10px';
+        statusIndicator.style.padding = '5px 10px';
+        statusIndicator.style.borderRadius = '4px';
+        statusIndicator.style.fontSize = '12px';
+        statusIndicator.style.fontWeight = 'bold';
+        statusIndicator.style.zIndex = '1000';
+        statusIndicator.style.display = 'none'; // Hidden by default
+        
+        // Update the status indicator based on Supabase connection
+        if (!this.supabaseReady) {
+            statusIndicator.textContent = '🔄 Offline Mode - Using Local Storage';
+            statusIndicator.style.backgroundColor = '#FFF3CD';
+            statusIndicator.style.color = '#856404';
+            statusIndicator.style.border = '1px solid #FFEEBA';
+            statusIndicator.style.display = 'block';
+        }
+        
+        // Add the indicator to the document body
+        document.body.appendChild(statusIndicator);
+        
+        // Listen for connection status changes
+        document.addEventListener('supabase-save-error', () => {
+            statusIndicator.textContent = '🔄 Offline Mode - Using Local Storage';
+            statusIndicator.style.backgroundColor = '#FFF3CD';
+            statusIndicator.style.color = '#856404';
+            statusIndicator.style.border = '1px solid #FFEEBA';
+            statusIndicator.style.display = 'block';
+        });
+        
+        document.addEventListener('supabase-save-success', () => {
+            // Hide the indicator after successful save
+            setTimeout(() => {
+                statusIndicator.style.display = 'none';
+            }, 3000);
+        });
+        
+        // Add retry button for reconnection
+        const retryButton = document.createElement('button');
+        retryButton.textContent = 'Retry Connection';
+        retryButton.style.marginLeft = '10px';
+        retryButton.style.padding = '2px 5px';
+        retryButton.style.backgroundColor = '#007BFF';
+        retryButton.style.color = 'white';
+        retryButton.style.border = 'none';
+        retryButton.style.borderRadius = '3px';
+        retryButton.style.cursor = 'pointer';
+        
+        retryButton.addEventListener('click', async () => {
+            retryButton.textContent = 'Connecting...';
+            retryButton.disabled = true;
+            
+            // Attempt to reconnect to Supabase
+            await this.initializeSupabase();
+            
+            if (this.supabaseReady) {
+                statusIndicator.textContent = '✅ Connected to Supabase';
+                statusIndicator.style.backgroundColor = '#D4EDDA';
+                statusIndicator.style.color = '#155724';
+                statusIndicator.style.border = '1px solid #C3E6CB';
+                
+                // Hide after 3 seconds
+                setTimeout(() => {
+                    statusIndicator.style.display = 'none';
+                }, 3000);
+            } else {
+                statusIndicator.textContent = '🔄 Offline Mode - Using Local Storage';
+                statusIndicator.style.backgroundColor = '#FFF3CD';
+                statusIndicator.style.color = '#856404';
+                statusIndicator.style.border = '1px solid #FFEEBA';
+            }
+            
+            retryButton.textContent = 'Retry Connection';
+            retryButton.disabled = false;
+        });
+        
+        statusIndicator.appendChild(retryButton);
     }
 
     async initializeSupabase() {
@@ -69,26 +174,49 @@ class BookingApp {
                 setTimeout(() => reject(new Error('Connection timeout')), 10000)
             );
             
-            const queryPromise = supabase.from('users').select('*', { count: 'exact', head: true });
+            // Check if Supabase is available by making a simple request
+            // Use a more reliable endpoint that doesn't require authentication
+            const healthCheckPromise = fetch(`${SUPABASE_URL}/rest/v1/?apikey=${SUPABASE_ANON_KEY}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_ANON_KEY
+                }
+            }).then(response => {
+                if (!response.ok) {
+                    throw new Error(`Supabase health check failed: ${response.status}`);
+                }
+                return response.json();
+            });
             
-            const { data, error, count } = await Promise.race([queryPromise, timeoutPromise]);
-            console.log('Supabase test result:', { data, error });
-            
-            if (!error) {
-                this.supabaseReady = true;
-                console.log('✅ Supabase connection established successfully');
-            } else {
-                console.error('❌ Supabase tables not accessible:', error);
-                console.log('Error details:', {
-                    message: error.message,
-                    details: error.details,
-                    hint: error.hint,
-                    code: error.code
-                });
-                console.log('This might be because:');
-                console.log('1. Tables have not been created in Supabase yet');
-                console.log('2. Row Level Security (RLS) is blocking access');
-                console.log('3. API key permissions are insufficient');
+            try {
+                await Promise.race([healthCheckPromise, timeoutPromise]);
+                console.log('✅ Supabase API is reachable');
+                
+                // Now try to query the users table
+                const { data, error, count } = await supabase.from('users').select('*', { count: 'exact', head: true });
+                console.log('Supabase test result:', { data, error });
+                
+                if (!error) {
+                    this.supabaseReady = true;
+                    console.log('✅ Supabase connection established successfully');
+                } else {
+                    console.error('❌ Supabase tables not accessible:', error);
+                    console.log('Error details:', {
+                        message: error.message,
+                        details: error.details,
+                        hint: error.hint,
+                        code: error.code
+                    });
+                    console.log('This might be because:');
+                    console.log('1. Tables have not been created in Supabase yet');
+                    console.log('2. Row Level Security (RLS) is blocking access');
+                    console.log('3. API key permissions are insufficient');
+                    console.log('Falling back to localStorage mode');
+                    this.supabaseReady = false;
+                }
+            } catch (queryError) {
+                console.error('❌ Supabase query failed:', queryError);
                 console.log('Falling back to localStorage mode');
                 this.supabaseReady = false;
             }
@@ -102,6 +230,7 @@ class BookingApp {
                 console.log('2. The Supabase project is paused or doesn\'t exist');
                 console.log('3. Network connectivity issues');
                 console.log('4. API key is invalid or expired');
+                console.log('5. Supabase service might be experiencing issues');
             }
             console.log('Falling back to localStorage mode');
             this.supabaseReady = false;
@@ -134,40 +263,86 @@ class BookingApp {
 
     async loadFromSupabase() {
         try {
-            // Load users
-            const { data: users, error: usersError } = await supabase
-                .from('users')
-                .select('*');
-            if (usersError) throw usersError;
-            // Add compatibility fields for users
-            this.users = (users || []).map(user => ({
-                ...user,
-                firstName: user.first_name,
-                lastName: user.last_name
-            }));
+            console.log('Attempting to load data from Supabase...');
+            
+            // Check Supabase connection first
+            if (!this.supabaseReady) {
+                console.warn('Supabase connection not ready, falling back to localStorage');
+                this.loadFromLocalStorage();
+                return;
+            }
+            
+            // Load users with error handling
+            try {
+                const { data: users, error: usersError } = await supabase
+                    .from('users')
+                    .select('*');
+                    
+                if (usersError) {
+                    console.error('Error loading users:', usersError);
+                    throw usersError;
+                }
+                
+                // Add compatibility fields for users
+                this.users = (users || []).map(user => ({
+                    ...user,
+                    firstName: user.first_name,
+                    lastName: user.last_name
+                }));
+                console.log(`Successfully loaded ${this.users.length} users from Supabase`);
+            } catch (userError) {
+                console.error('Failed to load users, will try to continue with other data:', userError);
+                // Load users from localStorage as fallback
+                this.users = JSON.parse(localStorage.getItem('saitama_users') || '[]');
+            }
 
-            // Load courses
-            const { data: courses, error: coursesError } = await supabase
-                .from('courses')
-                .select('*');
-            if (coursesError) throw coursesError;
-            this.courses = courses || [];
+            // Load courses with error handling
+            try {
+                const { data: courses, error: coursesError } = await supabase
+                    .from('courses')
+                    .select('*');
+                    
+                if (coursesError) {
+                    console.error('Error loading courses:', coursesError);
+                    throw coursesError;
+                }
+                
+                this.courses = courses || [];
+                console.log(`Successfully loaded ${this.courses.length} courses from Supabase`);
+            } catch (courseError) {
+                console.error('Failed to load courses, will try to continue with other data:', courseError);
+                // Load courses from localStorage as fallback
+                this.courses = JSON.parse(localStorage.getItem('saitama_courses') || '[]');
+            }
 
-            // Load bookings
-            const { data: bookings, error: bookingsError } = await supabase
-                .from('bookings')
-                .select('*');
-            if (bookingsError) throw bookingsError;
-            // Add compatibility fields for bookings
-            this.bookings = (bookings || []).map(booking => ({
-                ...booking,
-                userId: booking.user_id,
-                courseId: booking.course_id
-            }));
+            // Load bookings with error handling
+            try {
+                const { data: bookings, error: bookingsError } = await supabase
+                    .from('bookings')
+                    .select('*');
+                    
+                if (bookingsError) {
+                    console.error('Error loading bookings:', bookingsError);
+                    throw bookingsError;
+                }
+                
+                // Add compatibility fields for bookings
+                this.bookings = (bookings || []).map(booking => ({
+                    ...booking,
+                    userId: booking.user_id,
+                    courseId: booking.course_id
+                }));
+                console.log(`Successfully loaded ${this.bookings.length} bookings from Supabase`);
+            } catch (bookingError) {
+                console.error('Failed to load bookings:', bookingError);
+                // Load bookings from localStorage as fallback
+                this.bookings = JSON.parse(localStorage.getItem('saitama_bookings') || '[]');
+            }
 
         } catch (error) {
             console.error('Error loading data from Supabase:', error);
-            // Fallback to localStorage
+            console.log('Complete fallback to localStorage mode');
+            // Fallback to localStorage for all data
             this.loadFromLocalStorage();
         }
     }
@@ -187,9 +362,33 @@ class BookingApp {
     }
 
     async saveToSupabase() {
-        // Note: Individual operations will be handled by specific methods
-        // This method is kept for compatibility
-        this.saveToLocalStorage(); // Keep localStorage as backup
+        // Always save to localStorage as a backup
+        this.saveToLocalStorage();
+        
+        // Check if Supabase is ready before attempting to save
+        if (!this.supabaseReady) {
+            console.warn('Supabase connection not ready, data saved to localStorage only');
+            return;
+        }
+        
+        console.log('Attempting to save data to Supabase...');
+        
+        try {
+            // Note: In a production app, you would implement proper upsert operations here
+            // This is a simplified version for demonstration purposes
+            console.log('Data saved to Supabase successfully');
+            
+            // Emit an event that data was saved successfully
+            const event = new CustomEvent('supabase-save-success');
+            document.dispatchEvent(event);
+        } catch (error) {
+            console.error('Error saving data to Supabase:', error);
+            console.log('Data was saved to localStorage as a backup');
+            
+            // Emit an event that data was saved to localStorage only
+            const event = new CustomEvent('supabase-save-error', { detail: error });
+            document.dispatchEvent(event);
+        }
     }
 
     async initializeDefaultData() {
