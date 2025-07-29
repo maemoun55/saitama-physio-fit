@@ -5,6 +5,15 @@
 const SUPABASE_URL = 'https://rbfephzobczjludtfnej.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJiZmVwaHpvYmN6amx1ZHRmbmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2OTg2NDUsImV4cCI6MjA2OTI3NDY0NX0.09_Z5kAr47z-MxXJg00mYVDNyRua47qns9jZntwMx8M';
 
+// Supabase Storage Configuration
+const SUPABASE_STORAGE_URL = 'https://rbfephzobczjludtfnej.supabase.co/storage/v1/s3';
+const SUPABASE_REGION = 'eu-central-1';
+const STORAGE_BUCKETS = {
+    PROFILES: 'user-profiles',
+    COURSES: 'course-images',
+    DOCUMENTS: 'documents'
+};
+
 // Initialize Supabase client only if credentials are provided
 let supabase;
 if (typeof window !== 'undefined' && window.supabase && 
@@ -20,21 +29,197 @@ if (typeof window !== 'undefined' && window.supabase &&
                 headers: {
                     'apikey': SUPABASE_ANON_KEY
                 },
-                // Increase timeout for potentially slow connections
-                fetch: (url, options) => {
-                    return fetch(url, {
-                        ...options,
-                        // Add a longer timeout for fetch requests
-                        signal: options?.signal || (AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined)
-                    });
+                fetch: {
+                    timeout: 15000 // 15 seconds timeout
                 }
             }
         });
-        console.log('Supabase client initialized with custom options');
+        console.log('Supabase client initialized successfully');
     } catch (error) {
-        console.warn('Failed to initialize Supabase client:', error);
-        supabase = null;
+        console.error('Error initializing Supabase client:', error);
     }
+}
+
+// Storage Management Class
+class StorageManager {
+    constructor(supabaseClient) {
+        this.supabase = supabaseClient;
+        this.maxFileSize = 5 * 1024 * 1024; // 5MB limit
+        this.allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        this.allowedDocumentTypes = ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    }
+
+    // Validate file before upload
+    validateFile(file, type = 'image') {
+        const errors = [];
+        
+        if (!file) {
+            errors.push('No file selected');
+            return errors;
+        }
+        
+        if (file.size > this.maxFileSize) {
+            errors.push(`File size must be less than ${this.maxFileSize / (1024 * 1024)}MB`);
+        }
+        
+        const allowedTypes = type === 'image' ? this.allowedImageTypes : this.allowedDocumentTypes;
+        if (!allowedTypes.includes(file.type)) {
+            errors.push(`File type ${file.type} is not allowed`);
+        }
+        
+        return errors;
+    }
+
+    // Generate unique filename
+    generateFileName(originalName, userId = null) {
+        const timestamp = Date.now();
+        const randomString = Math.random().toString(36).substring(2, 15);
+        const extension = originalName.split('.').pop();
+        const prefix = userId ? `user_${userId}_` : '';
+        return `${prefix}${timestamp}_${randomString}.${extension}`;
+    }
+
+    // Upload file to Supabase storage
+    async uploadFile(file, bucket, path = null, userId = null) {
+        try {
+            if (!this.supabase) {
+                throw new Error('Supabase client not initialized');
+            }
+
+            const fileName = this.generateFileName(file.name, userId);
+            const filePath = path ? `${path}/${fileName}` : fileName;
+
+            console.log(`Uploading file to bucket: ${bucket}, path: ${filePath}`);
+
+            const { data, error } = await this.supabase.storage
+                .from(bucket)
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (error) {
+                console.error('Upload error:', error);
+                throw error;
+            }
+
+            console.log('File uploaded successfully:', data);
+            return {
+                success: true,
+                path: data.path,
+                fullPath: data.fullPath,
+                fileName: fileName
+            };
+        } catch (error) {
+            console.error('File upload failed:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    // Get public URL for uploaded file
+    async getPublicUrl(bucket, path) {
+        try {
+            if (!this.supabase) {
+                throw new Error('Supabase client not initialized');
+            }
+
+            const { data } = this.supabase.storage
+                .from(bucket)
+                .getPublicUrl(path);
+
+            return data.publicUrl;
+        } catch (error) {
+            console.error('Error getting public URL:', error);
+            return null;
+        }
+    }
+
+    // Delete file from storage
+    async deleteFile(bucket, path) {
+        try {
+            if (!this.supabase) {
+                throw new Error('Supabase client not initialized');
+            }
+
+            const { data, error } = await this.supabase.storage
+                .from(bucket)
+                .remove([path]);
+
+            if (error) {
+                throw error;
+            }
+
+            return { success: true, data };
+        } catch (error) {
+            console.error('File deletion failed:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // List files in bucket
+    async listFiles(bucket, path = '') {
+        try {
+            if (!this.supabase) {
+                throw new Error('Supabase client not initialized');
+            }
+
+            const { data, error } = await this.supabase.storage
+                .from(bucket)
+                .list(path);
+
+            if (error) {
+                throw error;
+            }
+
+            return { success: true, files: data };
+        } catch (error) {
+            console.error('Error listing files:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Create storage buckets if they don't exist
+    async initializeBuckets() {
+        try {
+            if (!this.supabase) {
+                console.warn('Supabase client not initialized, skipping bucket initialization');
+                return;
+            }
+
+            for (const [key, bucketName] of Object.entries(STORAGE_BUCKETS)) {
+                try {
+                    // Try to get bucket info (this will fail if bucket doesn't exist)
+                    const { data, error } = await this.supabase.storage.getBucket(bucketName);
+                    
+                    if (error && error.message.includes('not found')) {
+                        // Bucket doesn't exist, create it
+                        console.log(`Creating storage bucket: ${bucketName}`);
+                        const { data: createData, error: createError } = await this.supabase.storage
+                            .createBucket(bucketName, {
+                                public: true,
+                                allowedMimeTypes: key === 'PROFILES' || key === 'COURSES' ? this.allowedImageTypes : this.allowedDocumentTypes,
+                                fileSizeLimit: this.maxFileSize
+                            });
+                        
+                        if (createError) {
+                            console.error(`Failed to create bucket ${bucketName}:`, createError);
+                        } else {
+                            console.log(`✅ Bucket ${bucketName} created successfully`);
+                        }
+                    } else if (!error) {
+                        console.log(`✅ Bucket ${bucketName} already exists`);
+                    }
+                } catch (bucketError) {
+                    console.error(`Error with bucket ${bucketName}:`, bucketError);
+                }
+            }
+        } catch (error) {
+            console.error('Error initializing storage buckets:', error);
+        }
+     }
 }
 
 class BookingApp {
@@ -44,11 +229,13 @@ class BookingApp {
         this.courses = [];
         this.bookings = [];
         this.supabaseReady = false;
+        this.storageManager = null;
         this.init();
     }
 
     async init() {
         await this.initializeSupabase();
+        this.initializeStorageManager();
         await this.loadData();
         await this.initializeDefaultData();
         this.setupEventListeners();
@@ -67,6 +254,20 @@ class BookingApp {
             }
         } else {
             this.showLoginScreen();
+        }
+    }
+
+    initializeStorageManager() {
+        if (supabase) {
+            this.storageManager = new StorageManager(supabase);
+            console.log('✅ Storage Manager initialized');
+            
+            // Initialize storage buckets if Supabase is ready
+            if (this.supabaseReady) {
+                this.storageManager.initializeBuckets();
+            }
+        } else {
+            console.warn('⚠️ Storage Manager not initialized - Supabase client unavailable');
         }
     }
     
@@ -510,8 +711,6 @@ class BookingApp {
                 { time: '09:45–10:30', name: 'Fle.xx' }
             ]
         };
-
-        let courseId = 1;
         
         // Generate courses for the next 4 weeks (28 days)
         for (let dayOffset = 0; dayOffset < 28; dayOffset++) {
@@ -534,11 +733,15 @@ class BookingApp {
             const daySchedule = weeklySchedule[dayOfWeek];
             if (daySchedule) {
                 daySchedule.forEach(session => {
+                    const dateStr = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+                    // Create stable ID based on date, time, and course name
+                    const stableId = `${dateStr}_${session.time.replace(/[–:]/g, '')}_${session.name.replace(/[^a-zA-Z0-9]/g, '')}`;
+                    
                     courses.push({
-                        id: courseId++,
+                        id: stableId,
                         name: session.name,
                         time: session.time,
-                        date: currentDate.toISOString().split('T')[0], // YYYY-MM-DD format
+                        date: dateStr,
                         date_display: currentDate.toLocaleDateString('de-DE', { 
                             weekday: 'long', 
                             year: 'numeric', 
@@ -803,6 +1006,8 @@ class BookingApp {
     }
 
     async createBooking(courseId) {
+        const course = this.courses.find(c => c.id === courseId);
+        
         const booking = {
             id: Date.now(),
             user_id: this.currentUser.id,
@@ -811,7 +1016,18 @@ class BookingApp {
             timestamp: new Date().toISOString(),
             // Keep old format for compatibility
             userId: this.currentUser.id,
-            courseId: courseId
+            courseId: courseId,
+            // Store course data for future reference
+            courseData: course ? {
+                name: course.name,
+                dateDisplay: course.dateDisplay,
+                time: course.time,
+                date: course.date
+            } : null,
+            // Also store individual fields for backward compatibility
+            courseName: course?.name,
+            courseDate: course?.dateDisplay,
+            courseTime: course?.time
         };
         
         if (this.supabaseReady) {
@@ -876,12 +1092,19 @@ class BookingApp {
         const sortedMyBookings = [...myBookings].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
         sortedMyBookings.forEach(booking => {
-            const course = this.courses.find(c => c.id === booking.courseId);
+            let course = this.courses.find(c => c.id === booking.courseId);
             
-            // Skip rendering if course not found
-            if (!course) {
-                console.warn(`Course not found for booking ${booking.id}`);
-                return;
+            // If course not found in current courses, try to reconstruct from booking data
+            if (!course && booking.courseData) {
+                course = booking.courseData;
+            } else if (!course) {
+                // Create a fallback course object from stored booking information
+                course = {
+                    name: booking.courseName || 'Unknown Course',
+                    dateDisplay: booking.courseDate || 'Unknown Date',
+                    time: booking.courseTime || 'Unknown Time'
+                };
+                console.warn(`Course not found for booking ${booking.id}, using fallback data`);
             }
             
             const bookingItem = document.createElement('div');
@@ -905,7 +1128,7 @@ class BookingApp {
             
             // Safe property access with fallbacks
             const courseName = course.name || 'Unknown Course';
-            const courseDate = course.dateDisplay || 'Unknown Date';
+            const courseDate = course.dateDisplay || course.date_display || 'Unknown Date';
             const courseTime = course.time || 'Unknown Time';
             
             bookingItem.innerHTML = `
@@ -977,10 +1200,22 @@ class BookingApp {
                 `;
             }
             
+            // Enhanced course lookup with fallback data
+            let courseInfo = course;
+            if (!courseInfo && booking.courseData) {
+                courseInfo = booking.courseData;
+            } else if (!courseInfo) {
+                courseInfo = {
+                    name: booking.courseName || 'Unknown Course',
+                    dateDisplay: booking.courseDate || 'Unknown Date',
+                    time: booking.courseTime || 'Unknown Time'
+                };
+            }
+            
             // Safe property access with fallbacks
-            const courseName = course.name || 'Unknown Course';
-            const courseDate = course.dateDisplay || 'Unknown Date';
-            const courseTime = course.time || 'Unknown Time';
+            const courseName = courseInfo.name || 'Unknown Course';
+            const courseDate = courseInfo.dateDisplay || courseInfo.date_display || 'Unknown Date';
+            const courseTime = courseInfo.time || 'Unknown Time';
             const userFirstName = user.firstName || user.first_name || 'Unknown';
             const userLastName = user.lastName || user.last_name || 'User';
             
@@ -1029,10 +1264,22 @@ class BookingApp {
             const bookingItem = document.createElement('div');
             bookingItem.className = 'booking-item pending-booking';
             
+            // Enhanced course lookup with fallback data
+            let courseInfo = course;
+            if (!courseInfo && booking.courseData) {
+                courseInfo = booking.courseData;
+            } else if (!courseInfo) {
+                courseInfo = {
+                    name: booking.courseName || 'Unknown Course',
+                    dateDisplay: booking.courseDate || 'Unknown Date',
+                    time: booking.courseTime || 'Unknown Time'
+                };
+            }
+            
             // Safe property access with fallbacks
-            const courseName = course.name || 'Unknown Course';
-            const courseDate = course.dateDisplay || 'Unknown Date';
-            const courseTime = course.time || 'Unknown Time';
+            const courseName = courseInfo.name || 'Unknown Course';
+            const courseDate = courseInfo.dateDisplay || courseInfo.date_display || 'Unknown Date';
+            const courseTime = courseInfo.time || 'Unknown Time';
             const userFirstName = user.firstName || user.first_name || 'Unknown';
             const userLastName = user.lastName || user.last_name || 'User';
             
@@ -1100,10 +1347,22 @@ class BookingApp {
             const bookingItem = document.createElement('div');
             bookingItem.className = 'booking-item cancelled-booking';
             
+            // Enhanced course lookup with fallback data
+            let courseInfo = course;
+            if (!courseInfo && booking.courseData) {
+                courseInfo = booking.courseData;
+            } else if (!courseInfo) {
+                courseInfo = {
+                    name: booking.courseName || 'Unknown Course',
+                    dateDisplay: booking.courseDate || 'Unknown Date',
+                    time: booking.courseTime || 'Unknown Time'
+                };
+            }
+            
             // Safe property access with fallbacks
-            const courseName = course.name || 'Unknown Course';
-            const courseDate = course.dateDisplay || 'Unknown Date';
-            const courseTime = course.time || 'Unknown Time';
+            const courseName = courseInfo.name || 'Unknown Course';
+            const courseDate = courseInfo.dateDisplay || courseInfo.date_display || 'Unknown Date';
+            const courseTime = courseInfo.time || 'Unknown Time';
             const userFirstName = user.firstName || user.first_name || 'Unknown';
             const userLastName = user.lastName || user.last_name || 'User';
             
@@ -1152,19 +1411,32 @@ class BookingApp {
             const course = this.courses.find(c => c.id === booking.courseId);
             const user = this.users.find(u => u.id === booking.userId);
             
-            // Skip rendering if course or user not found
-            if (!course || !user) {
-                console.warn(`Missing data for waiting list booking ${booking.id}: course=${!!course}, user=${!!user}`);
+            // Skip rendering if user not found
+            if (!user) {
+                console.warn(`Missing user data for waiting list booking ${booking.id}`);
                 return;
+            }
+            
+            // Enhanced course lookup with fallback data
+            let courseInfo = course;
+            if (!courseInfo && booking.courseData) {
+                courseInfo = booking.courseData;
+            } else if (!courseInfo) {
+                courseInfo = {
+                    name: booking.courseName || 'Unknown Course',
+                    dateDisplay: booking.courseDate || 'Unknown Date',
+                    time: booking.courseTime || 'Unknown Time'
+                };
+                console.warn(`Course not found for waiting list booking ${booking.id}, using fallback data`);
             }
             
             const bookingItem = document.createElement('div');
             bookingItem.className = 'booking-item waiting-list-booking';
             
             // Safe property access with fallbacks
-            const courseName = course.name || 'Unknown Course';
-            const courseDate = course.dateDisplay || 'Unknown Date';
-            const courseTime = course.time || 'Unknown Time';
+            const courseName = courseInfo.name || 'Unknown Course';
+            const courseDate = courseInfo.dateDisplay || courseInfo.date_display || 'Unknown Date';
+            const courseTime = courseInfo.time || 'Unknown Time';
             const userFirstName = user.firstName || user.first_name || 'Unknown';
             const userLastName = user.lastName || user.last_name || 'User';
             
@@ -1313,12 +1585,21 @@ class BookingApp {
         this.users.forEach(user => {
             const userItem = document.createElement('div');
             userItem.className = 'user-item';
+            const profilePictureHtml = user.profilePicture || user.profile_picture ? 
+                `<img src="${user.profilePicture || user.profile_picture}" alt="Profile" class="profile-picture-small">` : 
+                `<div class="profile-picture-placeholder-small">${user.firstName.charAt(0)}${user.lastName.charAt(0)}</div>`;
+            
             userItem.innerHTML = `
                 <div class="user-info">
-                    <h5>${user.firstName} ${user.lastName}</h5>
-                    <p><strong>Email:</strong> ${user.email}</p>
-                    <p><strong>Username:</strong> ${user.username}</p>
-                    <span class="user-role role-${user.role.toLowerCase()}">${user.role}</span>
+                    <div class="user-profile">
+                        ${profilePictureHtml}
+                        <div class="user-details">
+                            <h5>${user.firstName} ${user.lastName}</h5>
+                            <p><strong>Email:</strong> ${user.email}</p>
+                            <p><strong>Username:</strong> ${user.username}</p>
+                            <span class="user-role role-${user.role.toLowerCase()}">${user.role}</span>
+                        </div>
+                    </div>
                 </div>
                 <div class="booking-actions">
                     <button class="btn-danger" onclick="app.handleDeleteUser(${user.id})" 
@@ -1331,7 +1612,7 @@ class BookingApp {
         });
     }
 
-    async addUser(firstName, lastName, email, password, role) {
+    async addUser(firstName, lastName, email, password, role, profilePictureFile = null) {
         // Generate username from email (part before @)
         const username = email.split('@')[0];
         
@@ -1347,6 +1628,51 @@ class BookingApp {
             return false;
         }
         
+        let profilePictureUrl = null;
+        
+        // Handle profile picture upload if provided
+        if (profilePictureFile && this.storageManager) {
+            console.log('Uploading profile picture...');
+            
+            // Validate file
+            const validationErrors = this.storageManager.validateFile(profilePictureFile, 'image');
+            if (validationErrors.length > 0) {
+                alert(`Profile picture upload failed: ${validationErrors.join(', ')}`);
+                return false;
+            }
+            
+            // Show upload progress
+            this.showUploadProgress('Uploading profile picture...');
+            
+            try {
+                const uploadResult = await this.storageManager.uploadFile(
+                    profilePictureFile, 
+                    STORAGE_BUCKETS.PROFILES, 
+                    'users',
+                    Math.max(...this.users.map(u => u.id), 0) + 1
+                );
+                
+                if (uploadResult.success) {
+                    profilePictureUrl = await this.storageManager.getPublicUrl(
+                        STORAGE_BUCKETS.PROFILES, 
+                        uploadResult.path
+                    );
+                    console.log('Profile picture uploaded successfully:', profilePictureUrl);
+                    this.showUploadStatus('Profile picture uploaded successfully!', 'success');
+                } else {
+                    console.error('Profile picture upload failed:', uploadResult.error);
+                    this.showUploadStatus(`Upload failed: ${uploadResult.error}`, 'error');
+                    // Continue without profile picture
+                }
+            } catch (error) {
+                console.error('Profile picture upload error:', error);
+                this.showUploadStatus('Upload failed. Continuing without profile picture.', 'error');
+                // Continue without profile picture
+            }
+            
+            this.hideUploadProgress();
+        }
+        
         const newUser = {
             id: Math.max(...this.users.map(u => u.id), 0) + 1,
             first_name: firstName,
@@ -1355,9 +1681,11 @@ class BookingApp {
             username: username,
             password: password,
             role: role,
+            profile_picture: profilePictureUrl,
             // Keep old format for compatibility
             firstName: firstName,
-            lastName: lastName
+            lastName: lastName,
+            profilePicture: profilePictureUrl
         };
         
         console.log('Adding user. Supabase ready:', this.supabaseReady);
@@ -1371,7 +1699,8 @@ class BookingApp {
                     email: email,
                     username: username,
                     password: password,
-                    role: role
+                    role: role,
+                    profile_picture: profilePictureUrl
                 };
                 
                 console.log('Attempting to insert user into Supabase:', supabaseUser);
@@ -1401,6 +1730,53 @@ class BookingApp {
         await this.saveData();
         this.renderAllUsers();
         return true;
+    }
+
+    // Helper methods for upload UI feedback
+    showUploadProgress(message) {
+        // Create or update progress indicator
+        let progressDiv = document.getElementById('upload-progress');
+        if (!progressDiv) {
+            progressDiv = document.createElement('div');
+            progressDiv.id = 'upload-progress';
+            progressDiv.className = 'upload-progress';
+            document.body.appendChild(progressDiv);
+        }
+        progressDiv.innerHTML = `
+            <div class="upload-progress-content">
+                <div class="upload-spinner"></div>
+                <span>${message}</span>
+            </div>
+        `;
+        progressDiv.style.display = 'block';
+    }
+
+    hideUploadProgress() {
+        const progressDiv = document.getElementById('upload-progress');
+        if (progressDiv) {
+            progressDiv.style.display = 'none';
+        }
+    }
+
+    showUploadStatus(message, type) {
+        // Create or update status message
+        let statusDiv = document.getElementById('upload-status');
+        if (!statusDiv) {
+            statusDiv = document.createElement('div');
+            statusDiv.id = 'upload-status';
+            statusDiv.className = 'upload-status';
+            document.body.appendChild(statusDiv);
+        }
+        statusDiv.className = `upload-status ${type}`;
+        statusDiv.textContent = message;
+        statusDiv.style.display = 'block';
+        
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+            if (statusDiv) {
+                statusDiv.style.display = 'none';
+            }
+        }, 3000);
     }
 
     async deleteUser(userId) {
@@ -1527,9 +1903,10 @@ class BookingApp {
             const email = document.getElementById('newEmail').value;
             const password = document.getElementById('newPassword').value;
             const role = document.getElementById('newRole').value;
+            const profilePictureFile = document.getElementById('newProfilePicture').files[0];
             
             try {
-                if (await this.addUser(firstName, lastName, email, password, role)) {
+                if (await this.addUser(firstName, lastName, email, password, role, profilePictureFile)) {
                     document.getElementById('addUserModal').classList.remove('active');
                     document.getElementById('addUserForm').reset();
                     alert('User added successfully!');
