@@ -671,14 +671,60 @@ class BookingApp {
     }
 
     async createTables() {
-        // Note: In a real Supabase setup, tables should be created via the Supabase dashboard
-        // This is just for demonstration - you'll need to create these tables manually
-        console.log('Please create the following tables in your Supabase dashboard:');
-        console.log('1. users (id, first_name, last_name, email, username, password, role, created_at)');
-        console.log('2. courses (id, name, time, date, date_display, day_of_week, created_at)');
-        console.log('3. bookings (id, user_id, course_id, status, timestamp, cancellation_date, created_at)');
+        if (!supabaseAdmin) {
+            console.log('Supabase admin client not available. Please create tables manually in Supabase dashboard:');
+            console.log('1. users (id, first_name, last_name, email, username, password, role, created_at)');
+            console.log('2. courses (id, name, time, date, date_display, day_of_week, created_at)');
+            console.log('3. bookings (id, user_id, course_id, status, timestamp, cancellation_date, created_at)');
+            return;
+        }
+
+        try {
+            console.log('Creating database tables...');
+            
+            // Create users table
+            await this.createUsersTable();
+            
+            // Create courses table
+            await this.createCoursesTable();
+            
+            // Create bookings table
+            await this.createBookingsTable();
+            
+            console.log('All tables created successfully!');
+        } catch (error) {
+            console.error('Error creating tables:', error);
+            console.log('Please create tables manually in Supabase dashboard if automatic creation failed.');
+        }
     }
 
+    async createUsersTable() {
+        const { error } = await supabaseAdmin.rpc('create_users_table_if_not_exists');
+        if (error) {
+            console.error('Error creating users table:', error);
+            throw error;
+        }
+        console.log('Users table created/verified');
+    }
+
+    async createCoursesTable() {
+        const { error } = await supabaseAdmin.rpc('create_courses_table_if_not_exists');
+        if (error) {
+            console.error('Error creating courses table:', error);
+            throw error;
+        }
+        console.log('Courses table created/verified');
+    }
+
+    async createBookingsTable() {
+        const { error } = await supabaseAdmin.rpc('create_bookings_table_if_not_exists');
+        if (error) {
+            console.error('Error creating bookings table:', error);
+            throw error;
+        }
+        console.log('Bookings table created/verified');
+    }
+    
     // Data Management
     async loadData() {
         if (this.supabaseReady) {
@@ -800,11 +846,35 @@ class BookingApp {
                 }
                 
                 // Add compatibility fields for bookings
-                this.bookings = (bookings || []).map(booking => ({
-                    ...booking,
-                    userId: booking.user_id,
-                    courseId: booking.course_id
-                }));
+                this.bookings = (bookings || []).map(booking => {
+                    const processedBooking = {
+                        ...booking,
+                        userId: booking.user_id,
+                        courseId: booking.course_id
+                    };
+                    
+                    // Find the corresponding course to get current data
+                    const course = this.courses.find(c => c.id === booking.course_id);
+                    if (course) {
+                        processedBooking.courseData = {
+                            name: course.name,
+                            dateDisplay: course.dateDisplay,
+                            time: course.time,
+                            date: course.date
+                        };
+                        processedBooking.courseName = course.name;
+                        processedBooking.courseDate = course.dateDisplay;
+                        processedBooking.courseTime = course.time;
+                    } else {
+                        // Fallback for missing course data
+                        processedBooking.courseData = null;
+                        processedBooking.courseName = booking.course_name || 'Unknown Course';
+                        processedBooking.courseDate = booking.course_date || 'Unknown Date';
+                        processedBooking.courseTime = booking.course_time || 'Unknown Time';
+                    }
+                    
+                    return processedBooking;
+                });
                 console.log(`Successfully loaded ${this.bookings.length} bookings from Supabase`);
             } catch (bookingError) {
                 console.error('Failed to load bookings:', bookingError);
@@ -1368,13 +1438,14 @@ class BookingApp {
                 data.courseId = data.course_id;
                 data.id = data.id || Date.now(); // Ensure ID exists
                 
-                // Add course data for display
+                // Add course data for display (stored locally, not in Supabase)
                 data.courseData = course ? {
                     name: course.name,
                     dateDisplay: course.dateDisplay,
                     time: course.time,
                     date: course.date
                 } : null;
+                
                 data.courseName = course?.name;
                 data.courseDate = course?.dateDisplay;
                 data.courseTime = course?.time;
