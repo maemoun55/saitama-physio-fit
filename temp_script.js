@@ -685,8 +685,7 @@ class BookingApp {
                     email: user.email,
                     username: user.username,
                     password: user.password,
-                    role: user.role,
-                    profile_picture: user.profile_picture
+                    role: user.role
                 }));
                 
                 const { error: usersError } = await supabase
@@ -1940,8 +1939,7 @@ class BookingApp {
                     email: email,
                     username: username,
                     password: password,
-                    role: role,
-                    profile_picture: null
+                    role: role
                 };
                 
                 console.log('Supabase user object:', supabaseUser);
