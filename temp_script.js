@@ -1723,7 +1723,7 @@ class BookingApp {
         });
     }
 
-    async addUser(firstName, lastName, email, password, role, profilePictureFile = null) {
+    async addUser(firstName, lastName, email, password, role) {
         // Generate username from email (part before @)
         const username = email.split('@')[0];
         
@@ -1739,51 +1739,6 @@ class BookingApp {
             return false;
         }
         
-        let profilePictureUrl = null;
-        
-        // Handle profile picture upload if provided
-        if (profilePictureFile && this.storageManager) {
-            console.log('Uploading profile picture...');
-            
-            // Validate file
-            const validationErrors = this.storageManager.validateFile(profilePictureFile, 'image');
-            if (validationErrors.length > 0) {
-                alert(`Profile picture upload failed: ${validationErrors.join(', ')}`);
-                return false;
-            }
-            
-            // Show upload progress
-            this.showUploadProgress('Uploading profile picture...');
-            
-            try {
-                const uploadResult = await this.storageManager.uploadFile(
-                    profilePictureFile, 
-                    STORAGE_BUCKETS.PROFILES, 
-                    'users',
-                    Math.max(...this.users.map(u => u.id), 0) + 1
-                );
-                
-                if (uploadResult.success) {
-                    profilePictureUrl = await this.storageManager.getPublicUrl(
-                        STORAGE_BUCKETS.PROFILES, 
-                        uploadResult.path
-                    );
-                    console.log('Profile picture uploaded successfully:', profilePictureUrl);
-                    this.showUploadStatus('Profile picture uploaded successfully!', 'success');
-                } else {
-                    console.error('Profile picture upload failed:', uploadResult.error);
-                    this.showUploadStatus(`Upload failed: ${uploadResult.error}`, 'error');
-                    // Continue without profile picture
-                }
-            } catch (error) {
-                console.error('Profile picture upload error:', error);
-                this.showUploadStatus('Upload failed. Continuing without profile picture.', 'error');
-                // Continue without profile picture
-            }
-            
-            this.hideUploadProgress();
-        }
-        
         const newUser = {
             id: Math.max(...this.users.map(u => u.id), 0) + 1,
             first_name: firstName,
@@ -1792,11 +1747,11 @@ class BookingApp {
             username: username,
             password: password,
             role: role,
-            profile_picture: profilePictureUrl,
+            profile_picture: null,
             // Keep old format for compatibility
             firstName: firstName,
             lastName: lastName,
-            profilePicture: profilePictureUrl
+            profilePicture: null
         };
         
         console.log('Adding user. Supabase ready:', this.supabaseReady);
@@ -1811,7 +1766,7 @@ class BookingApp {
                     username: username,
                     password: password,
                     role: role,
-                    profile_picture: profilePictureUrl
+                    profile_picture: null
                 };
                 
                 // Insert user details into Supabase users table
@@ -2015,10 +1970,9 @@ class BookingApp {
             const email = document.getElementById('newEmail').value;
             const password = document.getElementById('newPassword').value;
             const role = document.getElementById('newRole').value;
-            const profilePictureFile = document.getElementById('newProfilePicture').files[0];
             
             try {
-                if (await this.addUser(firstName, lastName, email, password, role, profilePictureFile)) {
+                if (await this.addUser(firstName, lastName, email, password, role)) {
                     document.getElementById('addUserModal').classList.remove('active');
                     document.getElementById('addUserForm').reset();
                     alert('User added successfully!');
