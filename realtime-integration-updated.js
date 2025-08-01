@@ -140,7 +140,7 @@ class RealtimeBookingSystem {
                 
             case 'UPDATE':
                 console.log('✏️ Booking updated:', { old: oldRecord, new: newRecord });
-                this.showNotification(`Booking status updated to ${newRecord.status}`, 'info');
+                // Booking status updated - no notification needed for smoother UX
                 // Update local booking
                 if (this.app && this.app.bookings) {
                     const bookingIndex = this.app.bookings.findIndex(b => b.id === newRecord.id);

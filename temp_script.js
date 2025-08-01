@@ -1083,7 +1083,7 @@ class BookingApp {
             this.renderCourses();
             this.renderUserBookings();
 
-            alert('Booking successful!');
+            // Booking successful - no popup needed for smoother UX
 
         } catch (error) {
             console.error('Failed to create booking:', error);
@@ -1586,7 +1586,7 @@ class BookingApp {
                     this.renderWaitingListBookings();
                     this.renderCancelledBookings();
                 }
-                alert('Booking cancelled successfully.');
+                // Booking cancelled successfully - no popup needed for smoother UX
                 console.log('Cancellation process completed');
             } else {
                 console.error('Booking not found with ID:', bookingId);
@@ -1967,7 +1967,7 @@ app.handleUpdateBookingStatus = async (bookingId, status) => {
     try {
         await app.updateBookingStatus(bookingId, status);
         // Show success message
-        alert(`Booking status successfully updated to: ${status}`);
+        // Booking status updated - no popup needed for smoother UX
     } catch (error) {
         console.error('Error updating booking status:', error);
         // Show specific error message if available

@@ -1715,7 +1715,7 @@ class BookingApp {
                 this.renderAllBookings();
             }
             
-            alert('Booking created successfully!');
+            // Booking created successfully - no popup needed for smoother UX
             
         } catch (error) {
             console.error('Error creating booking in Supabase:', error);
@@ -2264,7 +2264,7 @@ class BookingApp {
                         this.renderCancelledBookings();
                     }
                     
-                    alert('Booking cancelled successfully.');
+                    // Booking cancelled successfully - no popup needed for smoother UX
                     console.log('Cancellation process completed');
                     
                 } catch (error) {
@@ -2649,7 +2649,7 @@ app.handleUpdateBookingStatus = async (bookingId, status) => {
     try {
         await app.updateBookingStatus(bookingId, status);
         // Show success message
-        alert(`Booking status successfully updated to: ${status}`);
+        // Booking status updated - no popup needed for smoother UX
     } catch (error) {
         console.error('Error updating booking status:', error);
         // Show specific error message if available
