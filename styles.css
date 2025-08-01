@@ -746,9 +746,9 @@ body {
 }
 
 .status-booked {
-    background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-    color: #856404;
-    border: 1px solid rgba(133, 100, 4, 0.2);
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+    color: #065f46;
+    border: 1px solid rgba(6, 95, 70, 0.2);
 }
 
 .course-status.status-waiting-list {

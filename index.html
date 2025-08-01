@@ -86,6 +86,7 @@
                     <button class="admin-tab-btn active" data-admin-tab="bookings">All Bookings</button>
                     <button class="admin-tab-btn" data-admin-tab="pending">Pending Bookings</button>
                     <button class="admin-tab-btn" data-admin-tab="waitinglist">Waiting List</button>
+                    <button class="admin-tab-btn" data-admin-tab="rejected">Rejected Requests</button>
                     <button class="admin-tab-btn" data-admin-tab="cancellations">Recent Cancellations</button>
                     <button class="admin-tab-btn" data-admin-tab="users">User Management</button>
                 </div>
@@ -111,6 +112,14 @@
                     <h4>Waiting List</h4>
                     <div id="waitingListBookings" class="bookings-list">
                         <!-- Waiting list bookings will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Rejected Requests -->
+                <div id="adminRejectedTab" class="admin-tab-content">
+                    <h4>Rejected Requests</h4>
+                    <div id="rejectedBookings" class="bookings-list">
+                        <!-- Rejected bookings will be populated by JavaScript -->
                     </div>
                 </div>
 

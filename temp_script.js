@@ -224,12 +224,13 @@ class StorageManager {
 
 class BookingApp {
     constructor() {
-        this.currentUser = null;
-        this.users = [];
         this.courses = [];
         this.bookings = [];
+        this.users = [];
+        this.currentUser = null;
         this.supabaseReady = false;
         this.storageManager = null;
+        this.autoRefreshInterval = null;
         this.init();
     }
 
@@ -811,6 +812,9 @@ class BookingApp {
                 this.currentUser.lastName = this.currentUser.last_name;
             }
             
+            // Store user session in localStorage for persistence
+            localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+            
             await this.showMainScreen();
             return true;
             
@@ -822,14 +826,57 @@ class BookingApp {
     }
 
     async checkSupabaseSession() {
-        // Since we're using direct database authentication, 
-        // we don't need to check Supabase Auth sessions
-        console.log('Using direct database authentication - no session check needed');
-        return;
+        // Check for stored user session in localStorage
+        try {
+            const storedUser = localStorage.getItem('currentUser');
+            if (storedUser) {
+                this.currentUser = JSON.parse(storedUser);
+                console.log('Restored user session from localStorage:', this.currentUser.email);
+                await this.showMainScreen();
+                return;
+            }
+        } catch (error) {
+            console.error('Error restoring user session:', error);
+            localStorage.removeItem('currentUser');
+        }
+        
+        console.log('No stored session found - showing login screen');
+        this.showLoginScreen();
+    }
+
+    setupAutoRefresh() {
+        // Clear any existing interval
+        if (this.autoRefreshInterval) {
+            clearInterval(this.autoRefreshInterval);
+        }
+        
+        // Set up auto-refresh every 60 seconds for admin panel
+        this.autoRefreshInterval = setInterval(async () => {
+            if (this.currentUser && this.currentUser.role === 'Admin') {
+                console.log('Auto-refreshing admin panel...');
+                await this.loadData();
+                this.renderAllBookings();
+                this.renderPendingBookings();
+                this.renderWaitingListBookings();
+                this.renderRejectedBookings();
+                this.renderCancelledBookings();
+                this.renderAllUsers();
+            }
+        }, 60000); // 60 seconds
+        
+        console.log('Auto-refresh enabled for admin panel (60 seconds)');
     }
 
     logout() {
         this.currentUser = null;
+        localStorage.removeItem('currentUser');
+        
+        // Clear auto-refresh interval
+        if (this.autoRefreshInterval) {
+            clearInterval(this.autoRefreshInterval);
+            this.autoRefreshInterval = null;
+        }
+        
         console.log('User logged out');
         this.showLoginScreen();
     }
@@ -871,6 +918,9 @@ class BookingApp {
             this.showTab('admin');
             this.renderAllBookings();
             this.renderAllUsers();
+            
+            // Set up auto-refresh for admin panel every 60 seconds
+            this.setupAutoRefresh();
         } else {
             adminTab.style.display = 'none';
             memberTabs.forEach(tab => tab.style.display = 'block');
@@ -918,6 +968,8 @@ class BookingApp {
             this.renderPendingBookings();
         } else if (tabName === 'waitinglist') {
             this.renderWaitingListBookings();
+        } else if (tabName === 'rejected') {
+            this.renderRejectedBookings();
         } else if (tabName === 'cancellations') {
             this.renderCancelledBookings();
         } else if (tabName === 'users') {
@@ -1479,8 +1531,47 @@ class BookingApp {
                         Reject
                     </button>
                 </div>
+            `;            waitingListContainer.appendChild(bookingItem);
+        });
+    }
+
+    renderRejectedBookings() {
+        const rejectedContainer = document.getElementById('rejectedBookings');
+        const rejectedBookings = this.bookings.filter(b => b.status === 'Rejected');
+        
+        if (rejectedBookings.length === 0) {
+            rejectedContainer.innerHTML = '<p class="empty-state">No rejected requests found.</p>';
+            return;
+        }
+        
+        rejectedContainer.innerHTML = '';
+        
+        // Sort by timestamp (latest first)
+        const sortedRejected = [...rejectedBookings].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        sortedRejected.forEach(booking => {
+            const course = this.courses.find(c => c.id === booking.courseId);
+            const user = this.users.find(u => u.id === booking.userId);
+            
+            const courseTitle = course ? course.title : 'Unknown Course';
+            const courseTime = course ? `${course.date} at ${course.time}` : 'Unknown Time';
+            const userFirstName = user ? user.firstName : 'Unknown';
+            const userLastName = user ? user.lastName : 'User';
+            
+            const bookingItem = document.createElement('div');
+            bookingItem.className = 'booking-item';
+            bookingItem.innerHTML = `
+                <div class="booking-info">
+                    <h4>${courseTitle}</h4>
+                    <p><strong>Course Time:</strong> ${courseTime}</p>
+                    <p><strong>Member:</strong> ${userFirstName} ${userLastName}</p>
+                    <p><strong>Rejected:</strong> ${new Date(booking.timestamp).toLocaleDateString()}</p>
+                </div>
+                <div class="booking-status status-rejected">
+                    Rejected
+                </div>
             `;
-            waitingListContainer.appendChild(bookingItem);
+            rejectedContainer.appendChild(bookingItem);
         });
     }
 
