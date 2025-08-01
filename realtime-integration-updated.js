@@ -1,12 +1,8 @@
 // Real-time Integration for Saitama Physio Fit Booking System
 // Updated code for your specific application
 
-// Supabase Configuration (using your actual credentials)
-const SUPABASE_URL = 'https://rbfephzobczjludtfnej.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJiZmVwaHpvYmN6amx1ZHRmbmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2OTg2NDUsImV4cCI6MjA2OTI3NDY0NX0.09_Z5kAr47z-MxXJg00mYVDNyRua47qns9jZntwMx8M';
-
-// Initialize Supabase client
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Supabase client is expected to be initialized in script.js
+// and available globally as `supabase`
 
 // Real-time Booking System Extension
 class RealtimeBookingSystem {
@@ -25,68 +21,90 @@ class RealtimeBookingSystem {
 
     async setupRealtimeSubscriptions() {
         try {
+            // Get the global supabase client
+            const supabaseClient = window.supabaseClient || window.supabase || supabase;
+            if (!supabaseClient) {
+                throw new Error('Supabase client not available. Make sure it is initialized in script.js');
+            }
+            
+            // Detect Supabase version by checking for the 'channel' method
+            const isV2 = supabaseClient && typeof supabaseClient.channel === 'function';
+            console.log(`Using Supabase ${isV2 ? 'v2.x' : 'v1.x'} API for real-time subscriptions`);
+
             // Subscribe to bookings table changes
-            const bookingsChannel = supabase
-                .channel('bookings-changes')
-                .on(
-                    'postgres_changes',
-                    {
-                        event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
-                        schema: 'public',
-                        table: 'bookings'
-                    },
-                    (payload) => {
-                        console.log('📝 Booking real-time update:', payload);
-                        this.handleBookingChange(payload);
-                    }
-                )
-                .subscribe((status) => {
-                    console.log('📡 Bookings subscription status:', status);
-                    this.updateConnectionStatus('bookings', status);
-                });
+            if (isV2) {
+                // Supabase v2.x API - use channel()
+                const bookingsChannel = supabaseClient
+                    .channel('bookings-changes')
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+                            schema: 'public',
+                            table: 'bookings'
+                        },
+                        (payload) => {
+                            console.log('📝 Booking real-time update:', payload);
+                            this.handleBookingChange(payload);
+                        }
+                    )
+                    .subscribe((status) => {
+                        console.log('📡 Bookings subscription status:', status);
+                        this.updateConnectionStatus('bookings', status);
+                    });
+                    
+                this.channels.push(bookingsChannel);
+            }
 
             // Subscribe to users table changes
-            const usersChannel = supabase
-                .channel('users-changes')
-                .on(
-                    'postgres_changes',
-                    {
-                        event: '*',
-                        schema: 'public',
-                        table: 'users'
-                    },
-                    (payload) => {
-                        console.log('👤 User real-time update:', payload);
-                        this.handleUserChange(payload);
-                    }
-                )
-                .subscribe((status) => {
-                    console.log('📡 Users subscription status:', status);
-                    this.updateConnectionStatus('users', status);
-                });
+            if (isV2) {
+                // Supabase v2.x API - use channel()
+                const usersChannel = supabaseClient
+                    .channel('users-changes')
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: '*',
+                            schema: 'public',
+                            table: 'users'
+                        },
+                        (payload) => {
+                            console.log('👤 User real-time update:', payload);
+                            this.handleUserChange(payload);
+                        }
+                    )
+                    .subscribe((status) => {
+                        console.log('📡 Users subscription status:', status);
+                        this.updateConnectionStatus('users', status);
+                    });
+                    
+                this.channels.push(usersChannel);
+            }
 
             // Subscribe to courses table changes
-            const coursesChannel = supabase
-                .channel('courses-changes')
-                .on(
-                    'postgres_changes',
-                    {
-                        event: '*',
-                        schema: 'public',
-                        table: 'courses'
-                    },
-                    (payload) => {
-                        console.log('📚 Course real-time update:', payload);
-                        this.handleCourseChange(payload);
-                    }
-                )
-                .subscribe((status) => {
-                    console.log('📡 Courses subscription status:', status);
-                    this.updateConnectionStatus('courses', status);
-                });
-
-            // Store channels for cleanup
-            this.channels = [bookingsChannel, usersChannel, coursesChannel];
+            if (isV2) {
+                // Supabase v2.x API - use channel()
+                const coursesChannel = supabaseClient
+                    .channel('courses-changes')
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: '*',
+                            schema: 'public',
+                            table: 'courses'
+                        },
+                        (payload) => {
+                            console.log('📚 Course real-time update:', payload);
+                            this.handleCourseChange(payload);
+                        }
+                    )
+                    .subscribe((status) => {
+                        console.log('📡 Courses subscription status:', status);
+                        this.updateConnectionStatus('courses', status);
+                    });
+                    
+                this.channels.push(coursesChannel);
+            }
 
             console.log('✅ Real-time subscriptions set up successfully');
         } catch (error) {
@@ -96,6 +114,9 @@ class RealtimeBookingSystem {
 
     handleBookingChange(payload) {
         const { eventType, new: newRecord, old: oldRecord } = payload;
+        
+        console.log('🔄 REALTIME BOOKING CHANGE:', { eventType, newRecord, oldRecord });
+        console.log('📊 Current bookings count before realtime update:', this.app?.bookings?.length || 0);
         
         switch (eventType) {
             case 'INSERT':
@@ -113,6 +134,7 @@ class RealtimeBookingSystem {
                         user_id: newRecord.user_id,
                         course_id: newRecord.course_id
                     });
+                    console.log('📊 Bookings count after INSERT:', this.app.bookings.length);
                 }
                 break;
                 
@@ -122,15 +144,25 @@ class RealtimeBookingSystem {
                 // Update local booking
                 if (this.app && this.app.bookings) {
                     const bookingIndex = this.app.bookings.findIndex(b => b.id === newRecord.id);
+                    console.log('🔍 Found booking at index:', bookingIndex);
                     if (bookingIndex !== -1) {
+                        console.log('📝 Updating booking:', this.app.bookings[bookingIndex]);
                         this.app.bookings[bookingIndex] = {
                             ...this.app.bookings[bookingIndex],
                             status: newRecord.status,
                             timestamp: newRecord.timestamp,
-                            cancellation_date: newRecord.cancellation_date,
-                            cancelled_by: newRecord.cancelled_by
+                            cancellation_date: newRecord.cancellation_date
                         };
+                        
+                        // Only add cancelled_by if it exists in the record
+                        if (newRecord.cancelled_by !== undefined) {
+                            this.app.bookings[bookingIndex].cancelled_by = newRecord.cancelled_by;
+                        }
+                        console.log('✅ Updated booking:', this.app.bookings[bookingIndex]);
+                    } else {
+                        console.warn('⚠️ Booking not found in local array for update!');
                     }
+                    console.log('📊 Bookings count after UPDATE:', this.app.bookings.length);
                 }
                 break;
                 
@@ -139,11 +171,14 @@ class RealtimeBookingSystem {
                 this.showNotification('Booking deleted!', 'warning');
                 // Remove from local bookings array
                 if (this.app && this.app.bookings) {
+                    const beforeCount = this.app.bookings.length;
                     this.app.bookings = this.app.bookings.filter(b => b.id !== oldRecord.id);
+                    console.log(`📊 Bookings count: ${beforeCount} → ${this.app.bookings.length}`);
                 }
                 break;
         }
 
+        console.log('🎯 Refreshing UI after realtime change...');
         // Refresh UI
         this.refreshBookingUI();
     }
@@ -201,7 +236,7 @@ class RealtimeBookingSystem {
         }
     }
 
-    handleCourseChange(payload) {
+    async handleCourseChange(payload) {
         const { eventType, new: newRecord, old: oldRecord } = payload;
         
         switch (eventType) {
@@ -214,8 +249,8 @@ class RealtimeBookingSystem {
                         name: newRecord.name,
                         time: newRecord.time,
                         date: newRecord.date,
-                        dateDisplay: newRecord.date_display,
-                        dayOfWeek: newRecord.day_of_week
+                        date_display: newRecord.date_display,
+                        day_of_week: newRecord.day_of_week
                     });
                 }
                 break;
@@ -231,8 +266,8 @@ class RealtimeBookingSystem {
                             name: newRecord.name,
                             time: newRecord.time,
                             date: newRecord.date,
-                            dateDisplay: newRecord.date_display,
-                            dayOfWeek: newRecord.day_of_week
+                            date_display: newRecord.date_display,
+                            day_of_week: newRecord.day_of_week
                         };
                     }
                 }
@@ -249,7 +284,7 @@ class RealtimeBookingSystem {
 
         // Refresh courses UI
         if (this.app && this.app.renderCourses) {
-            this.app.renderCourses();
+            await this.app.renderCourses();
         }
     }
 
@@ -312,15 +347,15 @@ class RealtimeBookingSystem {
     }
 
     addRealtimeUI() {
-        // Add real-time status indicator
-        const statusDiv = document.createElement('div');
-        statusDiv.id = 'realtime-status';
-        statusDiv.className = 'realtime-status';
-        statusDiv.innerHTML = `
-            <span class="status-indicator disconnected"></span>
-            Real-time: Connecting...
-        `;
-        document.body.appendChild(statusDiv);
+        // Real-time status indicator removed per user request
+        // const statusDiv = document.createElement('div');
+        // statusDiv.id = 'realtime-status';
+        // statusDiv.className = 'realtime-status';
+        // statusDiv.innerHTML = `
+        //     <span class="status-indicator disconnected"></span>
+        //     Real-time: Connecting...
+        // `;
+        // document.body.appendChild(statusDiv);
 
         // Add CSS styles
         const style = document.createElement('style');
