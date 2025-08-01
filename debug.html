@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supabase Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .log { background: #f0f0f0; padding: 10px; margin: 5px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        .warning { background: #fff3e0; color: #ef6c00; }
+        button { padding: 10px 20px; margin: 10px 5px; }
+    </style>
+</head>
+<body>
+    <h1>Supabase Connection Debug</h1>
+    <div id="output"></div>
+    <button onclick="testAddUser()">Test Add User</button>
+    <button onclick="clearLogs()">Clear Logs</button>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.7"></script>
+    <script>
+        const SUPABASE_URL = 'https://rbfephzobczjludtfnej.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJiZmVwaHpvYmN6amx1ZHRmbmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2OTg2NDUsImV4cCI6MjA2OTI3NDY0NX0.09_Z5kAr47z-MxXJg00mYVDNyRua47qns9jZntwMx8M';
+        
+        const output = document.getElementById('output');
+        let supabase;
+        
+        function log(message, type = 'info') {
+            console.log(message);
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function clearLogs() {
+            output.innerHTML = '';
+        }
+        
+        // Initialize Supabase
+        log('Starting Supabase initialization...');
+        log('window.supabase available: ' + (!!window.supabase));
+        
+        if (window.supabase) {
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                log('Supabase client created successfully', 'success');
+                
+                // Test connection
+                log('Testing connection to users table...');
+                supabase.from('users').select('count', { count: 'exact', head: true })
+                    .then(result => {
+                        log('Connection test result: ' + JSON.stringify(result));
+                        if (result.error) {
+                            if (result.error.code === 'PGRST116') {
+                                log('Users table does not exist!', 'error');
+                                log('Error details: ' + JSON.stringify(result.error), 'error');
+                            } else {
+                                log('Other error: ' + JSON.stringify(result.error), 'error');
+                            }
+                        } else {
+                            log('Users table exists and is accessible', 'success');
+                        }
+                    })
+                    .catch(error => {
+                        log('Connection test failed: ' + JSON.stringify(error), 'error');
+                    });
+            } catch (error) {
+                log('Error creating Supabase client: ' + error.message, 'error');
+            }
+        } else {
+            log('Supabase library not loaded', 'error');
+        }
+        
+        async function testAddUser() {
+            if (!supabase) {
+                log('Supabase not initialized', 'error');
+                return;
+            }
+            
+            log('Testing user insertion...');
+            
+            const testUser = {
+                id: 'test-' + Date.now(),
+                first_name: 'Test',
+                last_name: 'User',
+                email: 'test' + Date.now() + '@example.com',
+                username: 'testuser' + Date.now(),
+                password: 'password123',
+                role: 'customer',
+                profile_picture: null
+            };
+            
+            log('Attempting to insert user: ' + JSON.stringify(testUser));
+            
+            try {
+                const { data, error } = await supabase.from('users').insert([testUser]);
+                
+                if (error) {
+                    log('Insert failed: ' + JSON.stringify(error), 'error');
+                } else {
+                    log('Insert successful: ' + JSON.stringify(data), 'success');
+                }
+            } catch (error) {
+                log('Insert exception: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

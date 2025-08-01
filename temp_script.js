@@ -16,6 +16,11 @@ const STORAGE_BUCKETS = {
 
 // Initialize Supabase client only if credentials are provided
 let supabase;
+console.log('Checking Supabase initialization...');
+console.log('window.supabase available:', typeof window !== 'undefined' && !!window.supabase);
+console.log('SUPABASE_URL:', SUPABASE_URL);
+console.log('SUPABASE_ANON_KEY length:', SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.length : 'undefined');
+
 if (typeof window !== 'undefined' && window.supabase && 
     SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
     try {
@@ -34,10 +39,21 @@ if (typeof window !== 'undefined' && window.supabase &&
                 }
             }
         });
-        console.log('Supabase client initialized successfully');
+        console.log('Supabase client initialized successfully:', !!supabase);
+        
+        // Test connection immediately
+        supabase.from('users').select('count', { count: 'exact', head: true })
+            .then(result => {
+                console.log('Supabase connection test result:', result);
+            })
+            .catch(error => {
+                console.error('Supabase connection test failed:', error);
+            });
     } catch (error) {
         console.error('Error initializing Supabase client:', error);
     }
+} else {
+    console.error('Supabase initialization failed - missing dependencies or credentials');
 }
 
 // Storage Management Class
@@ -433,12 +449,107 @@ class BookingApp {
     }
 
     async createTables() {
-        // Note: In a real Supabase setup, tables should be created via the Supabase dashboard
-        // This is just for demonstration - you'll need to create these tables manually
-        console.log('Please create the following tables in your Supabase dashboard:');
-        console.log('1. users (id, first_name, last_name, email, username, password, role, created_at)');
-        console.log('2. courses (id, name, time, date, date_display, day_of_week, created_at)');
-        console.log('3. bookings (id, user_id, course_id, status, timestamp, cancellation_date, created_at)');
+        if (!this.supabaseReady) {
+            console.log('Supabase not ready, cannot create tables');
+            return;
+        }
+        
+        try {
+            console.log('Creating database tables...');
+            
+            // Create users table
+            const usersTableSQL = `
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    first_name TEXT NOT NULL,
+                    last_name TEXT NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    username TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'customer',
+                    profile_picture TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                );
+            `;
+            
+            // Try to create users table - this might fail if RPC is not available
+            try {
+                const { error: usersError } = await supabase.rpc('exec_sql', { sql: usersTableSQL });
+                if (usersError) {
+                    console.log('Users table creation via RPC failed, trying direct approach:', usersError);
+                    // Fallback: try to query the table to see if it exists
+                    const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
+                    if (error && error.code === 'PGRST116') {
+                        console.error('Users table does not exist. Please create it manually in Supabase dashboard.');
+                        console.log('SQL to create users table:', usersTableSQL);
+                    } else {
+                        console.log('Users table exists and is accessible');
+                    }
+                } else {
+                    console.log('Users table created successfully');
+                }
+            } catch (rpcError) {
+                console.log('RPC not available, checking table existence directly');
+                const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
+                if (error && error.code === 'PGRST116') {
+                    console.error('Users table does not exist. Please create it manually in Supabase dashboard.');
+                    console.log('SQL to create users table:', usersTableSQL);
+                } else {
+                    console.log('Users table exists and is accessible');
+                }
+            }
+            
+            // Create courses table
+            const coursesTableSQL = `
+                CREATE TABLE IF NOT EXISTS courses (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    time TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    date_display TEXT NOT NULL,
+                    day_of_week TEXT NOT NULL,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                );
+            `;
+            
+            const { error: coursesError } = await supabase.rpc('exec_sql', { sql: coursesTableSQL });
+            if (coursesError) {
+                console.log('Courses table might already exist or need manual creation:', coursesError);
+            } else {
+                console.log('Courses table created successfully');
+            }
+            
+            // Create bookings table
+            const bookingsTableSQL = `
+                CREATE TABLE IF NOT EXISTS bookings (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    course_id TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    cancellation_date TIMESTAMP WITH TIME ZONE,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (course_id) REFERENCES courses(id)
+                );
+            `;
+            
+            const { error: bookingsError } = await supabase.rpc('exec_sql', { sql: bookingsTableSQL });
+            if (bookingsError) {
+                console.log('Bookings table might already exist or need manual creation:', bookingsError);
+            } else {
+                console.log('Bookings table created successfully');
+            }
+            
+            console.log('Table creation process completed');
+            
+        } catch (error) {
+            console.error('Error creating tables:', error);
+            console.log('Please create the following tables manually in your Supabase dashboard:');
+            console.log('1. users (id TEXT PRIMARY KEY, first_name TEXT, last_name TEXT, email TEXT UNIQUE, username TEXT UNIQUE, password TEXT, role TEXT, profile_picture TEXT, created_at TIMESTAMP)');
+            console.log('2. courses (id TEXT PRIMARY KEY, name TEXT, time TEXT, date TEXT, date_display TEXT, day_of_week TEXT, created_at TIMESTAMP)');
+            console.log('3. bookings (id TEXT PRIMARY KEY, user_id TEXT, course_id TEXT, status TEXT, timestamp TIMESTAMP, cancellation_date TIMESTAMP, created_at TIMESTAMP)');
+        }
     }
 
     // Data Management
@@ -565,9 +676,65 @@ class BookingApp {
         console.log('Attempting to save data to Supabase...');
         
         try {
-            // Note: In a production app, you would implement proper upsert operations here
-            // This is a simplified version for demonstration purposes
-            console.log('Data saved to Supabase successfully');
+            // Save users to Supabase
+            if (this.users && this.users.length > 0) {
+                const supabaseUsers = this.users.map(user => ({
+                    id: user.id,
+                    first_name: user.first_name,
+                    last_name: user.last_name,
+                    email: user.email,
+                    username: user.username,
+                    password: user.password,
+                    role: user.role,
+                    profile_picture: user.profile_picture
+                }));
+                
+                const { error: usersError } = await supabase
+                    .from('users')
+                    .upsert(supabaseUsers, { onConflict: 'id' });
+                    
+                if (usersError) {
+                    console.error('Error saving users:', usersError);
+                    throw usersError;
+                }
+                console.log('Users saved successfully');
+            }
+            
+            // Save courses to Supabase
+            if (this.courses && this.courses.length > 0) {
+                const { error: coursesError } = await supabase
+                    .from('courses')
+                    .upsert(this.courses, { onConflict: 'id' });
+                    
+                if (coursesError) {
+                    console.error('Error saving courses:', coursesError);
+                    throw coursesError;
+                }
+                console.log('Courses saved successfully');
+            }
+            
+            // Save bookings to Supabase
+            if (this.bookings && this.bookings.length > 0) {
+                const supabaseBookings = this.bookings.map(booking => ({
+                    id: booking.id,
+                    user_id: booking.user_id || booking.userId,
+                    course_id: booking.course_id || booking.courseId,
+                    status: booking.status,
+                    timestamp: booking.timestamp
+                }));
+                
+                const { error: bookingsError } = await supabase
+                    .from('bookings')
+                    .upsert(supabaseBookings, { onConflict: 'id' });
+                    
+                if (bookingsError) {
+                    console.error('Error saving bookings:', bookingsError);
+                    throw bookingsError;
+                }
+                console.log('Bookings saved successfully');
+            }
+            
+            console.log('All data saved to Supabase successfully');
             
             // Emit an event that data was saved successfully
             const event = new CustomEvent('supabase-save-success');
@@ -1606,6 +1773,7 @@ class BookingApp {
         this.renderAllBookings();
         this.renderPendingBookings();
         this.renderWaitingListBookings();
+        this.renderRejectedBookings();
         this.renderCancelledBookings();
         this.renderUserBookings();
         this.renderCourses();
@@ -1724,17 +1892,24 @@ class BookingApp {
     }
 
     async addUser(firstName, lastName, email, password, role) {
+        console.log('=== ADD USER DEBUG START ===');
+        console.log('Input parameters:', { firstName, lastName, email, password, role });
+        console.log('Supabase ready status:', this.supabaseReady);
+        console.log('Supabase client exists:', !!supabase);
+        
         // Generate username from email (part before @)
         const username = email.split('@')[0];
         
         // Check if username already exists
         if (this.users.find(u => u.username === username)) {
+            console.log('Username already exists:', username);
             alert('A user with this email prefix already exists. Please choose a different email.');
             return false;
         }
         
         // Check if email already exists
         if (this.users.find(u => u.email === email)) {
+            console.log('Email already exists:', email);
             alert('Email already exists. Please choose a different email.');
             return false;
         }
@@ -1754,7 +1929,7 @@ class BookingApp {
             profilePicture: null
         };
         
-        console.log('Adding user. Supabase ready:', this.supabaseReady);
+        console.log('New user object created:', newUser);
         
         if (this.supabaseReady) {
             try {
@@ -1769,23 +1944,34 @@ class BookingApp {
                     profile_picture: null
                 };
                 
+                console.log('Supabase user object:', supabaseUser);
+                console.log('About to insert into Supabase...');
+                
                 // Insert user details into Supabase users table
-                console.log('Attempting to insert user into Supabase:', supabaseUser);
                 const { data, error } = await supabase
                     .from('users')
                     .insert([supabaseUser])
                     .select()
                     .single();
                 
-                console.log('Supabase insert result:', { data, error });
+                console.log('Supabase insert response - data:', data);
+                console.log('Supabase insert response - error:', error);
                 
-                if (error) throw error;
+                if (error) {
+                    console.error('Supabase insert error details:', error);
+                    throw error;
+                }
                 
-                console.log('User successfully added to Supabase, reloading data...');
+                console.log('User successfully added to Supabase!');
+                console.log('Reloading data from Supabase...');
+                
                 // Reload all users from Supabase to ensure synchronization
                 await this.loadFromSupabase();
+                console.log('Data reloaded from Supabase');
+                
             } catch (error) {
                 console.error('Error adding user to Supabase:', error);
+                console.error('Error details:', error.message, error.details, error.hint);
                 console.log('Adding user to local storage instead');
                 this.users.push(newUser);
             }
@@ -1794,8 +1980,11 @@ class BookingApp {
             this.users.push(newUser);
         }
         
+        console.log('Calling saveData...');
         await this.saveData();
+        console.log('Calling renderAllUsers...');
         this.renderAllUsers();
+        console.log('=== ADD USER DEBUG END ===');
         return true;
     }
 

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supabase Test</title>
+</head>
+<body>
+    <h1>Supabase Connection Test</h1>
+    <div id="output"></div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.7"></script>
+    <script>
+        const SUPABASE_URL = 'https://rbfephzobczjludtfnej.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJiZmVwaHpvYmN6amx1ZHRmbmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2OTg2NDUsImV4cCI6MjA2OTI3NDY0NX0.09_Z5kAr47z-MxXJg00mYVDNyRua47qns9jZntwMx8M';
+        
+        const output = document.getElementById('output');
+        
+        function log(message) {
+            console.log(message);
+            output.innerHTML += '<p>' + message + '</p>';
+        }
+        
+        log('Testing Supabase connection...');
+        log('window.supabase available: ' + (!!window.supabase));
+        
+        if (window.supabase) {
+            try {
+                const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                log('Supabase client created successfully');
+                
+                // Test connection
+                supabase.from('users').select('count', { count: 'exact', head: true })
+                    .then(result => {
+                        log('Connection test result: ' + JSON.stringify(result));
+                        
+                        // Try to insert a test user
+                        const testUser = {
+                            id: 'test-' + Date.now(),
+                            firstName: 'Test',
+                            lastName: 'User',
+                            email: 'test@example.com',
+                            password: 'password123',
+                            role: 'customer',
+                            profile_picture: null
+                        };
+                        
+                        return supabase.from('users').insert([testUser]);
+                    })
+                    .then(insertResult => {
+                        log('Insert test result: ' + JSON.stringify(insertResult));
+                    })
+                    .catch(error => {
+                        log('Error: ' + JSON.stringify(error));
+                    });
+            } catch (error) {
+                log('Error creating client: ' + error.message);
+            }
+        } else {
+            log('Supabase library not loaded');
+        }
+    </script>
+</body>
+</html>
