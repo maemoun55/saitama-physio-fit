@@ -297,7 +297,7 @@ class BookingApp {
         
         // Update the status indicator based on Supabase connection
         if (!this.supabaseReady) {
-            statusIndicator.textContent = '❌ Database Connection Error';
+            statusIndicator.textContent = '❌ Datenbankverbindungsfehler';
             statusIndicator.style.backgroundColor = '#F8D7DA';
             statusIndicator.style.color = '#721C24';
             statusIndicator.style.border = '1px solid #F5C6CB';
@@ -309,7 +309,7 @@ class BookingApp {
         
         // Listen for connection status changes
         document.addEventListener('supabase-save-error', () => {
-            statusIndicator.textContent = '❌ Database Connection Error';
+            statusIndicator.textContent = '❌ Datenbankverbindungsfehler';
             statusIndicator.style.backgroundColor = '#F8D7DA';
             statusIndicator.style.color = '#721C24';
             statusIndicator.style.border = '1px solid #F5C6CB';
@@ -325,7 +325,7 @@ class BookingApp {
         
         // Add retry button for reconnection
         const retryButton = document.createElement('button');
-        retryButton.textContent = 'Retry Connection';
+        retryButton.textContent = 'Verbindung wiederholen';
         retryButton.style.marginLeft = '10px';
         retryButton.style.padding = '2px 5px';
         retryButton.style.backgroundColor = '#007BFF';
@@ -335,14 +335,14 @@ class BookingApp {
         retryButton.style.cursor = 'pointer';
         
         retryButton.addEventListener('click', async () => {
-            retryButton.textContent = 'Connecting...';
+            retryButton.textContent = 'Verbinde...';
             retryButton.disabled = true;
             
             // Attempt to reconnect to Supabase
             await this.initializeSupabase();
             
             if (this.supabaseReady) {
-                statusIndicator.textContent = '✅ Connected to Supabase';
+                statusIndicator.textContent = '✅ Mit Supabase verbunden';
                 statusIndicator.style.backgroundColor = '#D4EDDA';
                 statusIndicator.style.color = '#155724';
                 statusIndicator.style.border = '1px solid #C3E6CB';
@@ -352,13 +352,13 @@ class BookingApp {
                     statusIndicator.style.display = 'none';
                 }, 3000);
             } else {
-                statusIndicator.textContent = '❌ Database Connection Error';
+                statusIndicator.textContent = '❌ Datenbankverbindungsfehler';
                 statusIndicator.style.backgroundColor = '#F8D7DA';
                 statusIndicator.style.color = '#721C24';
                 statusIndicator.style.border = '1px solid #F5C6CB';
             }
             
-            retryButton.textContent = 'Retry Connection';
+            retryButton.textContent = 'Verbindung wiederholen';
             retryButton.disabled = false;
         });
         
@@ -751,9 +751,9 @@ class BookingApp {
         // Initialize default users if none exist
         if (this.users.length === 0 && this.supabaseReady) {
             const defaultUsers = [
-                { id: 1, first_name: 'Admin', last_name: 'User', email: 'admin@saitama.com', username: 'admin', password: 'admin123', role: 'Admin' },
-                { id: 2, first_name: 'John', last_name: 'Doe', email: 'john.doe@email.com', username: 'member1', password: 'member123', role: 'Member' },
-                { id: 3, first_name: 'Jane', last_name: 'Smith', email: 'jane.smith@email.com', username: 'member2', password: 'member456', role: 'Member' }
+                { id: 1, first_name: 'Admin', last_name: 'Benutzer', email: 'admin@saitama.com', username: 'admin', password: 'admin123', role: 'Admin' },
+        { id: 2, first_name: 'John', last_name: 'Doe', email: 'john.doe@email.com', username: 'member1', password: 'member123', role: 'Mitglied' },
+        { id: 3, first_name: 'Jane', last_name: 'Smith', email: 'jane.smith@email.com', username: 'member2', password: 'member456', role: 'Mitglied' }
             ];
             
             await this.insertDefaultUsers(defaultUsers);
@@ -1059,9 +1059,9 @@ class BookingApp {
         document.getElementById('mainScreen').classList.add('active');
         
         // Safe property access for user name display
-        const firstName = this.currentUser?.firstName || this.currentUser?.first_name || 'User';
+        const firstName = this.currentUser?.firstName || this.currentUser?.first_name || 'Benutzer';
         const lastName = this.currentUser?.lastName || this.currentUser?.last_name || '';
-        document.getElementById('welcomeUser').textContent = `Welcome, ${firstName} ${lastName}`.trim();
+        document.getElementById('welcomeUser').textContent = `Willkommen, ${firstName} ${lastName}`.trim();
         
         // Refresh courses to ensure they're up to date
         const generatedCourses = this.generateDailyCourses();
@@ -1184,7 +1184,7 @@ class BookingApp {
                 const userBooking = this.bookings.find(b => 
                     b.userId === this.currentUser.id && 
                     b.courseId === course.id && 
-                    (b.status === 'Pending' || b.status === 'Confirmed' || b.status === 'Waiting List')
+                    (b.status === 'Ausstehend' || b.status === 'Bestätigt' || b.status === 'Warteliste')
                 );
                 
                 const courseCard = document.createElement('div');
@@ -1203,14 +1203,14 @@ class BookingApp {
                 courseCard.innerHTML = `
                     <h4>${course.name}</h4>
                     <div class="course-time">
-                        <strong>Time:</strong> ${course.time}
+                        <strong>Zeit:</strong> ${course.time}
                     </div>
                     <div class="course-status ${statusClass}">
-                        ${userBooking ? `Booked (${userBooking.status})` : 'Available'}
+                        ${userBooking ? `Gebucht (${userBooking.status})` : 'Verfügbar'}
                     </div>
                     <button class="btn-primary" onclick="app.handleBookCourse('${course.id}')"
                                 ${userBooking ? 'disabled' : ''}>
-                            ${userBooking ? 'Already Booked' : 'Book Now'}
+                            ${userBooking ? 'Bereits gebucht' : 'Jetzt buchen'}
                         </button>
                 `;
                 dayCoursesGrid.appendChild(courseCard);
@@ -1225,11 +1225,11 @@ class BookingApp {
         const existingBooking = this.bookings.find(b => 
             b.userId === this.currentUser.id && 
             b.courseId === courseId && 
-            (b.status === 'Pending' || b.status === 'Confirmed' || b.status === 'Waiting List')
+            (b.status === 'Ausstehend' || b.status === 'Bestätigt' || b.status === 'Warteliste')
         );
         
         if (existingBooking) {
-            alert('You already have a booking for this course.');
+            alert('Sie haben bereits eine Buchung für diesen Kurs.');
             return;
         }
         
@@ -1237,7 +1237,7 @@ class BookingApp {
             await this.createBooking(courseId);
         } catch (error) {
             console.error('Error booking course:', error);
-            alert('Failed to book course. Please try again.');
+            alert('Kurs konnte nicht gebucht werden. Bitte versuchen Sie es erneut.');
         }
     }
 
@@ -1245,7 +1245,7 @@ class BookingApp {
         console.log('DEBUG: createBooking called with courseId:', courseId, 'type:', typeof courseId);
         
         if (!this.supabaseReady) {
-            alert('Database connection not available. Cannot create booking.');
+            alert('Datenbankverbindung nicht verfügbar. Buchung kann nicht erstellt werden.');
             return;
         }
 
@@ -1255,7 +1255,7 @@ class BookingApp {
 
         if (!course) {
             console.error('Course not found for booking:', courseId);
-            alert('Could not find the selected course. Please refresh and try again.');
+            alert('Der ausgewählte Kurs konnte nicht gefunden werden. Bitte aktualisieren Sie die Seite und versuchen Sie es erneut.');
             return;
         }
 
@@ -1270,14 +1270,14 @@ class BookingApp {
         
         if (courseCheckError || !dbCourse) {
             console.error('Course does not exist in database:', course.id);
-            alert('This course is not available in the database. Please refresh the page.');
+            alert('Dieser Kurs ist in der Datenbank nicht verfügbar. Bitte aktualisieren Sie die Seite.');
             return;
         }
 
         const newBooking = {
             user_id: this.currentUser.id,
             course_id: course.id, // Use the course ID as-is
-            status: 'Pending' // Default status
+            status: 'Ausstehend' // Default status
         };
         
         console.log('DEBUG: Attempting to create booking:', newBooking);
@@ -1305,7 +1305,7 @@ class BookingApp {
 
         } catch (error) {
             console.error('Failed to create booking:', error);
-            alert(`Error creating booking: ${error.message}. Please try again.`);
+            alert(`Fehler beim Erstellen der Buchung: ${error.message}. Bitte versuchen Sie es erneut.`);
         }
     }
 
@@ -1317,8 +1317,8 @@ class BookingApp {
         if (myBookings.length === 0) {
             userBookings.innerHTML = `
                 <div class="empty-state">
-                    <h4>No Bookings Yet</h4>
-                    <p>You haven't made any bookings yet. Visit the Home tab to book a course.</p>
+                    <h4>Noch keine Buchungen</h4>
+                    <p>Sie haben noch keine Buchungen vorgenommen. Besuchen Sie die Startseite, um einen Kurs zu buchen.</p>
                 </div>
             `;
             return;
@@ -1338,9 +1338,9 @@ class BookingApp {
             } else if (!course) {
                 // Create a fallback course object from stored booking information
                 course = {
-                    name: booking.courseName || 'Unknown Course',
-                    dateDisplay: booking.courseDate || 'Unknown Date',
-                    time: booking.courseTime || 'Unknown Time'
+                    name: booking.courseName || 'Unbekannter Kurs',
+                dateDisplay: booking.courseDate || 'Unbekanntes Datum',
+                time: booking.courseTime || 'Unbekannte Zeit'
                 };
                 console.warn(`Course not found for booking ${booking.id}, using fallback data`);
             }
@@ -1351,12 +1351,12 @@ class BookingApp {
             console.log('Rendering booking:', booking.id, 'Status:', booking.status);
             
             let cancelButton = '';
-            if (booking.status === 'Confirmed' || booking.status === 'Pending' || booking.status === 'Waiting List') {
+            if (booking.status === 'Bestätigt' || booking.status === 'Ausstehend' || booking.status === 'Warteliste') {
                 console.log('Adding cancel button for booking:', booking.id);
                 cancelButton = `
                     <div class="booking-actions">
                         <button class="btn-danger" onclick="app.handleCancelBooking(${booking.id})">
-                            Cancel Booking
+                            Buchung stornieren
                         </button>
                     </div>
                 `;
@@ -1365,17 +1365,17 @@ class BookingApp {
             }
             
             // Safe property access with fallbacks
-            const courseName = course.name || 'Unknown Course';
-            const courseDate = course.dateDisplay || course.date_display || 'Unknown Date';
-            const courseTime = course.time || 'Unknown Time';
+            const courseName = course.name || 'Unbekannter Kurs';
+            const courseDate = course.dateDisplay || course.date_display || 'Unbekanntes Datum';
+            const courseTime = course.time || 'Unbekannte Zeit';
             
             bookingItem.innerHTML = `
                 <div class="booking-info">
                     <h5>${courseName}</h5>
-                    <p><strong>Date:</strong> ${courseDate}</p>
-                    <p><strong>Time:</strong> ${courseTime}</p>
-                    <p><strong>Booked:</strong> ${new Date(booking.timestamp).toLocaleDateString()}</p>
-                    ${booking.cancelledAt ? `<p><strong>Cancelled:</strong> ${new Date(booking.cancelledAt).toLocaleDateString()}</p>` : ''}
+                    <p><strong>Datum:</strong> ${courseDate}</p>
+                    <p><strong>Zeit:</strong> ${courseTime}</p>
+                    <p><strong>Gebucht:</strong> ${new Date(booking.timestamp).toLocaleDateString()}</p>
+                    ${booking.cancelledAt ? `<p><strong>Storniert:</strong> ${new Date(booking.cancelledAt).toLocaleDateString()}</p>` : ''}
                 </div>
                 <div class="booking-status status-${booking.status.toLowerCase().replace(' ', '-')}">
                     ${booking.status}
@@ -1422,17 +1422,17 @@ class BookingApp {
             if (booking.status !== 'Cancelled') {
                 actionButtons = `
                     <div class="booking-actions">
-                        <button class="btn-success" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Confirmed')" 
-                                ${booking.status === 'Confirmed' ? 'disabled' : ''}>
-                            Confirm
-                        </button>
-                        <button class="btn-danger" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Rejected')" 
-                                ${booking.status === 'Rejected' ? 'disabled' : ''}>
-                            Reject
-                        </button>
-                        <button class="btn-warning" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Waiting List')" 
-                                ${booking.status === 'Waiting List' ? 'disabled' : ''}>
-                            Waiting List
+                        <button class="btn-success" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Bestätigt')"
+            ${booking.status === 'Bestätigt' ? 'disabled' : ''}>
+                Bestätigen
+            </button>
+            <button class="btn-danger" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Abgelehnt')"
+            ${booking.status === 'Abgelehnt' ? 'disabled' : ''}>
+                Ablehnen
+            </button>
+                        <button class="btn-warning" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Warteliste')" 
+                                ${booking.status === 'Warteliste' ? 'disabled' : ''}>
+                            Warteliste
                         </button>
                     </div>
                 `;
@@ -1444,27 +1444,27 @@ class BookingApp {
                 courseInfo = booking.courseData;
             } else if (!courseInfo) {
                 courseInfo = {
-                    name: booking.courseName || 'Unknown Course',
-                    dateDisplay: booking.courseDate || 'Unknown Date',
-                    time: booking.courseTime || 'Unknown Time'
+                    name: booking.courseName || 'Unbekannter Kurs',
+                dateDisplay: booking.courseDate || 'Unbekanntes Datum',
+                time: booking.courseTime || 'Unbekannte Zeit'
                 };
             }
             
             // Safe property access with fallbacks
-            const courseName = courseInfo.name || 'Unknown Course';
-            const courseDate = courseInfo.dateDisplay || courseInfo.date_display || 'Unknown Date';
-            const courseTime = courseInfo.time || 'Unknown Time';
-            const userFirstName = user.firstName || user.first_name || 'Unknown';
-            const userLastName = user.lastName || user.last_name || 'User';
+            const courseName = courseInfo.name || 'Unbekannter Kurs';
+            const courseDate = courseInfo.dateDisplay || courseInfo.date_display || 'Unbekanntes Datum';
+            const courseTime = courseInfo.time || 'Unbekannte Zeit';
+            const userFirstName = user.firstName || user.first_name || 'Unbekannt';
+            const userLastName = user.lastName || user.last_name || 'Benutzer';
             
             bookingItem.innerHTML = `
                 <div class="booking-info">
-                    <h5>${courseName} ${booking.status === 'Cancelled' ? '(CANCELLED)' : ''}</h5>
-                    <p><strong>Course Date:</strong> ${courseDate}</p>
-                    <p><strong>Course Time:</strong> ${courseTime}</p>
-                    <p><strong>Member:</strong> ${userFirstName} ${userLastName}</p>
-                    <p><strong>Booked:</strong> ${new Date(booking.timestamp).toLocaleDateString()}</p>
-                    ${booking.cancelledAt ? `<p><strong>Cancelled:</strong> ${new Date(booking.cancelledAt).toLocaleDateString()} by ${booking.cancelledBy || 'member'}</p>` : ''}
+                    <h5>${courseName} ${booking.status === 'Storniert' ? '(STORNIERT)' : ''}</h5>
+                    <p><strong>Kursdatum:</strong> ${courseDate}</p>
+                <p><strong>Kurszeit:</strong> ${courseTime}</p>
+                <p><strong>Mitglied:</strong> ${userFirstName} ${userLastName}</p>
+                <p><strong>Gebucht:</strong> ${new Date(booking.timestamp).toLocaleDateString()}</p>
+                ${booking.cancelledAt ? `<p><strong>Storniert:</strong> ${new Date(booking.cancelledAt).toLocaleDateString()} von ${booking.cancelledBy || 'Mitglied'}</p>` : ''}
                 </div>
                 <div class="booking-status status-${booking.status.toLowerCase().replace(' ', '-')}">
                     ${booking.status}
@@ -1477,10 +1477,10 @@ class BookingApp {
 
     renderPendingBookings() {
         const pendingBookingsContainer = document.getElementById('pendingBookings');
-        const pendingBookingsList = this.bookings.filter(b => b.status === 'Pending');
+        const pendingBookingsList = this.bookings.filter(b => b.status === 'Ausstehend');
         
         if (pendingBookingsList.length === 0) {
-            pendingBookingsContainer.innerHTML = '<p class="empty-state">No pending bookings found.</p>';
+            pendingBookingsContainer.innerHTML = '<p class="empty-state">Keine ausstehenden Buchungen gefunden.</p>';
             return;
         }
         
@@ -1508,40 +1508,40 @@ class BookingApp {
                 courseInfo = booking.courseData;
             } else if (!courseInfo) {
                 courseInfo = {
-                    name: booking.courseName || 'Unknown Course',
-                    dateDisplay: booking.courseDate || 'Unknown Date',
-                    time: booking.courseTime || 'Unknown Time'
+                    name: booking.courseName || 'Unbekannter Kurs',
+                dateDisplay: booking.courseDate || 'Unbekanntes Datum',
+                time: booking.courseTime || 'Unbekannte Zeit'
                 };
             }
             
             // Safe property access with fallbacks
-            const courseName = courseInfo.name || 'Unknown Course';
-            const courseDate = courseInfo.dateDisplay || courseInfo.date_display || 'Unknown Date';
-            const courseTime = courseInfo.time || 'Unknown Time';
-            const userFirstName = user.firstName || user.first_name || 'Unknown';
-            const userLastName = user.lastName || user.last_name || 'User';
+            const courseName = courseInfo.name || 'Unbekannter Kurs';
+            const courseDate = courseInfo.dateDisplay || courseInfo.date_display || 'Unbekanntes Datum';
+            const courseTime = courseInfo.time || 'Unbekannte Zeit';
+            const userFirstName = user.firstName || user.first_name || 'Unbekannt';
+            const userLastName = user.lastName || user.last_name || 'Benutzer';
             
             bookingItem.innerHTML = `
                 <div class="booking-info">
                     <h5>${courseName}</h5>
-                    <p><strong>Course Date:</strong> ${courseDate}</p>
-                    <p><strong>Course Time:</strong> ${courseTime}</p>
-                    <p><strong>Member:</strong> ${userFirstName} ${userLastName}</p>
-                    <p><strong>Booked:</strong> ${new Date(booking.timestamp).toLocaleDateString()}</p>
+                    <p><strong>Kursdatum:</strong> ${courseDate}</p>
+                <p><strong>Kurszeit:</strong> ${courseTime}</p>
+                <p><strong>Mitglied:</strong> ${userFirstName} ${userLastName}</p>
+                <p><strong>Gebucht:</strong> ${new Date(booking.timestamp).toLocaleDateString()}</p>
                 </div>
                 <div class="booking-status status-pending">
-                    Pending
-                </div>
+                        Ausstehend
+                    </div>
                 <div class="booking-actions">
-                    <button class="btn-success" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Confirmed')">
-                        Confirm
-                    </button>
-                    <button class="btn-danger" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Rejected')">
-                        Reject
-                    </button>
-                    <button class="btn-warning" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Waiting List')">
-                        Waiting List
-                    </button>
+                    <button class="btn-success" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Bestätigt')">
+                         Bestätigen
+                     </button>
+                     <button class="btn-danger" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Abgelehnt')">
+                         Ablehnen
+                     </button>
+                    <button class="btn-warning" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Warteliste')">
+                     Warteliste
+                     </button>
                 </div>
             `;             pendingBookingsContainer.appendChild(bookingItem);
         });
@@ -1549,10 +1549,10 @@ class BookingApp {
 
     renderCancelledBookings() {
         const cancelledBookingsContainer = document.getElementById('cancelledBookings');
-        const cancelledBookingsList = this.bookings.filter(b => b.status === 'Cancelled');
+        const cancelledBookingsList = this.bookings.filter(b => b.status === 'Storniert');
         
         if (cancelledBookingsList.length === 0) {
-            cancelledBookingsContainer.innerHTML = '<p class="empty-state">No cancelled bookings found.</p>';
+            cancelledBookingsContainer.innerHTML = '<p class="empty-state">Keine stornierten Buchungen gefunden.</p>';
             return;
         }
         
@@ -1563,8 +1563,8 @@ class BookingApp {
         notificationDiv.className = 'cancellation-notification';
         notificationDiv.innerHTML = `
             <div class="notification-header">
-                <h4>⚠️ Cancelled Bookings (${cancelledBookingsList.length})</h4>
-                <p>Members have cancelled the following appointments:</p>
+                <h4>⚠️ Stornierte Buchungen (${cancelledBookingsList.length})</h4>
+            <p>Mitglieder haben die folgenden Termine storniert:</p>
             </div>
         `;
         cancelledBookingsContainer.appendChild(notificationDiv);
@@ -1591,30 +1591,30 @@ class BookingApp {
                 courseInfo = booking.courseData;
             } else if (!courseInfo) {
                 courseInfo = {
-                    name: booking.courseName || 'Unknown Course',
-                    dateDisplay: booking.courseDate || 'Unknown Date',
-                    time: booking.courseTime || 'Unknown Time'
+                    name: booking.courseName || 'Unbekannter Kurs',
+                dateDisplay: booking.courseDate || 'Unbekanntes Datum',
+                time: booking.courseTime || 'Unbekannte Zeit'
                 };
             }
             
             // Safe property access with fallbacks
-            const courseName = courseInfo.name || 'Unknown Course';
-            const courseDate = courseInfo.dateDisplay || courseInfo.date_display || 'Unknown Date';
-            const courseTime = courseInfo.time || 'Unknown Time';
-            const userFirstName = user.firstName || user.first_name || 'Unknown';
-            const userLastName = user.lastName || user.last_name || 'User';
+            const courseName = courseInfo.name || 'Unbekannter Kurs';
+            const courseDate = courseInfo.dateDisplay || courseInfo.date_display || 'Unbekanntes Datum';
+            const courseTime = courseInfo.time || 'Unbekannte Zeit';
+            const userFirstName = user.firstName || user.first_name || 'Unbekannt';
+            const userLastName = user.lastName || user.last_name || 'Benutzer';
             
             bookingItem.innerHTML = `
                 <div class="booking-info">
-                    <h5>${courseName} (CANCELLED)</h5>
-                    <p><strong>Course Date:</strong> ${courseDate}</p>
-                    <p><strong>Course Time:</strong> ${courseTime}</p>
-                    <p><strong>Member:</strong> ${userFirstName} ${userLastName}</p>
-                    <p><strong>Booked:</strong> ${new Date(booking.timestamp).toLocaleDateString()}</p>
-                    <p><strong>Cancelled:</strong> ${new Date(booking.cancelledAt).toLocaleDateString()} by ${booking.cancelledBy || 'member'}</p>
+                    <h5>${courseName} (STORNIERT)</h5>
+                    <p><strong>Kursdatum:</strong> ${courseDate}</p>
+                <p><strong>Kurszeit:</strong> ${courseTime}</p>
+                <p><strong>Mitglied:</strong> ${userFirstName} ${userLastName}</p>
+                <p><strong>Gebucht:</strong> ${new Date(booking.timestamp).toLocaleDateString()}</p>
+                <p><strong>Storniert:</strong> ${new Date(booking.cancelledAt).toLocaleDateString()} von ${booking.cancelledBy || 'Mitglied'}</p>
                 </div>
                 <div class="booking-status status-cancelled">
-                    Cancelled
+                    Storniert
                 </div>
             `;             cancelledBookingsContainer.appendChild(bookingItem);
         });
@@ -1625,7 +1625,7 @@ class BookingApp {
         const waitingListBookings = this.bookings.filter(b => b.status === 'Waiting List');
         
         if (waitingListBookings.length === 0) {
-            waitingListContainer.innerHTML = '<p class="empty-state">No bookings on waiting list.</p>';
+            waitingListContainer.innerHTML = '<p class="empty-state">Keine Buchungen auf der Warteliste.</p>';
             return;
         }
         
@@ -1636,8 +1636,8 @@ class BookingApp {
         notificationDiv.className = 'waiting-list-notification';
         notificationDiv.innerHTML = `
             <div class="notification-header">
-                <h4>📋 Waiting List (${waitingListBookings.length})</h4>
-                <p>Members waiting for course availability:</p>
+                <h4>📋 Warteliste (${waitingListBookings.length})</h4>
+                <p>Mitglieder warten auf Kursverfügbarkeit:</p>
             </div>
         `;
         waitingListContainer.appendChild(notificationDiv);
@@ -1661,9 +1661,9 @@ class BookingApp {
                 courseInfo = booking.courseData;
             } else if (!courseInfo) {
                 courseInfo = {
-                    name: booking.courseName || 'Unknown Course',
-                    dateDisplay: booking.courseDate || 'Unknown Date',
-                    time: booking.courseTime || 'Unknown Time'
+                    name: booking.courseName || 'Unbekannter Kurs',
+                dateDisplay: booking.courseDate || 'Unbekanntes Datum',
+                time: booking.courseTime || 'Unbekannte Zeit'
                 };
                 console.warn(`Course not found for waiting list booking ${booking.id}, using fallback data`);
             }
@@ -1672,30 +1672,30 @@ class BookingApp {
             bookingItem.className = 'booking-item waiting-list-booking';
             
             // Safe property access with fallbacks
-            const courseName = courseInfo.name || 'Unknown Course';
-            const courseDate = courseInfo.dateDisplay || courseInfo.date_display || 'Unknown Date';
-            const courseTime = courseInfo.time || 'Unknown Time';
-            const userFirstName = user.firstName || user.first_name || 'Unknown';
-            const userLastName = user.lastName || user.last_name || 'User';
+            const courseName = courseInfo.name || 'Unbekannter Kurs';
+            const courseDate = courseInfo.dateDisplay || courseInfo.date_display || 'Unbekanntes Datum';
+            const courseTime = courseInfo.time || 'Unbekannte Zeit';
+            const userFirstName = user.firstName || user.first_name || 'Unbekannt';
+            const userLastName = user.lastName || user.last_name || 'Benutzer';
             
             bookingItem.innerHTML = `
                 <div class="booking-info">
-                    <h5>${courseName} (WAITING LIST)</h5>
-                    <p><strong>Course Date:</strong> ${courseDate}</p>
-                    <p><strong>Course Time:</strong> ${courseTime}</p>
-                    <p><strong>Member:</strong> ${userFirstName} ${userLastName}</p>
-                    <p><strong>Added to Waiting List:</strong> ${new Date(booking.timestamp).toLocaleDateString()}</p>
+                    <h5>${courseName} (WARTELISTE)</h5>
+                    <p><strong>Kursdatum:</strong> ${courseDate}</p>
+                <p><strong>Kurszeit:</strong> ${courseTime}</p>
+                <p><strong>Mitglied:</strong> ${userFirstName} ${userLastName}</p>
+                    <p><strong>Zur Warteliste hinzugefügt:</strong> ${new Date(booking.timestamp).toLocaleDateString()}</p>
                 </div>
                 <div class="booking-status status-waiting-list">
-                    Waiting List
+                    Warteliste
                 </div>
                 <div class="booking-actions">
-                    <button class="btn-success" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Confirmed')">
-                        Confirm
-                    </button>
-                    <button class="btn-danger" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Rejected')">
-                        Reject
-                    </button>
+                    <button class="btn-success" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Bestätigt')">
+                         Bestätigen
+                     </button>
+                    <button class="btn-danger" onclick="app.handleUpdateBookingStatus(${booking.id}, 'Abgelehnt')">
+                         Ablehnen
+                     </button>
                 </div>
             `;            waitingListContainer.appendChild(bookingItem);
         });
@@ -1703,10 +1703,10 @@ class BookingApp {
 
     renderRejectedBookings() {
         const rejectedContainer = document.getElementById('rejectedBookings');
-        const rejectedBookings = this.bookings.filter(b => b.status === 'Rejected');
+        const rejectedBookings = this.bookings.filter(b => b.status === 'Abgelehnt');
         
         if (rejectedBookings.length === 0) {
-            rejectedContainer.innerHTML = '<p class="empty-state">No rejected requests found.</p>';
+            rejectedContainer.innerHTML = '<p class="empty-state">Keine abgelehnten Anfragen gefunden.</p>';
             return;
         }
         
@@ -1719,23 +1719,23 @@ class BookingApp {
             const course = this.courses.find(c => c.id === booking.courseId);
             const user = this.users.find(u => u.id === booking.userId);
             
-            const courseTitle = course ? course.title : 'Unknown Course';
-            const courseTime = course ? `${course.date} at ${course.time}` : 'Unknown Time';
-            const userFirstName = user ? user.firstName : 'Unknown';
-            const userLastName = user ? user.lastName : 'User';
+            const courseTitle = course ? course.title : 'Unbekannter Kurs';
+            const courseTime = course ? `${course.date} um ${course.time}` : 'Unbekannte Zeit';
+            const userFirstName = user ? user.firstName : 'Unbekannt';
+            const userLastName = user ? user.lastName : 'Benutzer';
             
             const bookingItem = document.createElement('div');
             bookingItem.className = 'booking-item';
             bookingItem.innerHTML = `
                 <div class="booking-info">
                     <h4>${courseTitle}</h4>
-                    <p><strong>Course Time:</strong> ${courseTime}</p>
-                    <p><strong>Member:</strong> ${userFirstName} ${userLastName}</p>
-                    <p><strong>Rejected:</strong> ${new Date(booking.timestamp).toLocaleDateString()}</p>
+                    <p><strong>Kurszeit:</strong> ${courseTime}</p>
+                <p><strong>Mitglied:</strong> ${userFirstName} ${userLastName}</p>
+                    <p><strong>Abgelehnt:</strong> ${new Date(booking.timestamp).toLocaleDateString()}</p>
                 </div>
                 <div class="booking-status status-rejected">
-                    Rejected
-                </div>
+                        Abgelehnt
+                    </div>
             `;
             rejectedContainer.appendChild(bookingItem);
         });
@@ -1785,23 +1785,23 @@ class BookingApp {
         
         // Check if user is logged in
         if (!this.currentUser) {
-            alert('You must be logged in to cancel a booking.');
+            alert('Sie müssen angemeldet sein, um eine Buchung zu stornieren.');
             return;
         }
         
-        if (confirm('Are you sure you want to cancel this booking?')) {
+        if (confirm('Sind Sie sicher, dass Sie diese Buchung stornieren möchten?')) {
             const booking = this.bookings.find(b => b.id === bookingId);
             console.log('Found booking:', booking);
             
             // Check if booking belongs to current user (unless admin)
             if (booking && this.currentUser.role !== 'Admin' && booking.userId !== this.currentUser.id) {
-                alert('You can only cancel your own bookings.');
+                alert('Sie können nur Ihre eigenen Buchungen stornieren.');
                 return;
             }
             
             if (booking) {
                 console.log('Cancelling booking. Original status:', booking.status);
-                booking.status = 'Cancelled';
+                booking.status = 'Storniert';
                 booking.cancelledAt = new Date().toISOString();
                 booking.cancelledBy = 'member';
                 
@@ -1813,7 +1813,7 @@ class BookingApp {
                         const { data, error } = await supabase
                             .from('bookings')
                             .update({ 
-                                status: 'Cancelled',
+                                status: 'Storniert',
                                 cancellation_date: new Date().toISOString()
                             })
                             .eq('id', bookingId)
@@ -1821,13 +1821,13 @@ class BookingApp {
                         
                         if (error) {
                             console.error('Supabase update error:', error);
-                            alert(`Failed to cancel booking in database: ${error.message}`);
+                            alert(`Buchung konnte in der Datenbank nicht storniert werden: ${error.message}`);
                             return; // Don't proceed if database update fails
                         }
                         console.log('Supabase update successful:', data);
                     } catch (error) {
                         console.error('Error cancelling booking in Supabase:', error);
-                        alert(`Failed to cancel booking: ${error.message}`);
+                        alert(`Buchung konnte nicht storniert werden: ${error.message}`);
                         return; // Don't proceed if there's an error
                     }
                 } else {
@@ -1848,7 +1848,7 @@ class BookingApp {
                 console.log('Cancellation process completed');
             } else {
                 console.error('Booking not found with ID:', bookingId);
-                alert('Error: Booking not found.');
+                alert('Fehler: Buchung nicht gefunden.');
             }
         } else {
             console.log('User cancelled the cancellation');
@@ -1873,8 +1873,8 @@ class BookingApp {
                         ${profilePictureHtml}
                         <div class="user-details">
                             <h5>${user.firstName} ${user.lastName}</h5>
-                            <p><strong>Email:</strong> ${user.email}</p>
-                            <p><strong>Username:</strong> ${user.username}</p>
+                            <p><strong>E-Mail:</strong> ${user.email}</p>
+                            <p><strong>Benutzername:</strong> ${user.username}</p>
                             <span class="user-role role-${user.role.toLowerCase()}">${user.role}</span>
                         </div>
                     </div>
@@ -1882,7 +1882,7 @@ class BookingApp {
                 <div class="booking-actions">
                     <button class="btn-danger" onclick="app.handleDeleteUser(${user.id})" 
                             ${user.id === this.currentUser.id ? 'disabled' : ''}>
-                        ${user.id === this.currentUser.id ? 'Current User' : 'Delete'}
+                        ${user.id === this.currentUser.id ? 'Aktueller Benutzer' : 'Löschen'}
                     </button>
                 </div>
             `;
@@ -1902,14 +1902,14 @@ class BookingApp {
         // Check if username already exists
         if (this.users.find(u => u.username === username)) {
             console.log('Username already exists:', username);
-            alert('A user with this email prefix already exists. Please choose a different email.');
+            alert('Ein Benutzer mit diesem E-Mail-Präfix existiert bereits. Bitte wählen Sie eine andere E-Mail.');
             return false;
         }
         
         // Check if email already exists
         if (this.users.find(u => u.email === email)) {
             console.log('Email already exists:', email);
-            alert('Email already exists. Please choose a different email.');
+            alert('E-Mail-Adresse existiert bereits. Bitte wählen Sie eine andere E-Mail.');
             return false;
         }
         
@@ -2038,11 +2038,11 @@ class BookingApp {
         console.log('Current user ID:', this.currentUser.id);
         
         if (userId === this.currentUser.id) {
-            alert('You cannot delete your own account.');
+            alert('Sie können Ihr eigenes Konto nicht löschen.');
             return;
         }
         
-        if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+        if (confirm('Sind Sie sicher, dass Sie diesen Benutzer löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.')) {
             console.log('User confirmed deletion');
             
             if (this.supabaseReady) {
@@ -2074,7 +2074,7 @@ class BookingApp {
                     console.log('User deleted from Supabase successfully');
                 } catch (error) {
                     console.error('Error deleting user from Supabase:', error);
-                    alert('Error deleting user from database. Please try again.');
+                    alert('Fehler beim Löschen des Benutzers aus der Datenbank. Bitte versuchen Sie es erneut.');
                     return;
                 }
             } else {
@@ -2096,7 +2096,7 @@ class BookingApp {
             this.renderAllUsers();
             this.renderAllBookings();
             
-            alert('User deleted successfully.');
+            alert('Benutzer erfolgreich gelöscht.');
             console.log('User deletion completed');
         } else {
             console.log('User cancelled deletion');
@@ -2115,11 +2115,11 @@ class BookingApp {
                 if (await this.login(email, password)) {
                     document.getElementById('loginError').textContent = '';
                 } else {
-                    document.getElementById('loginError').textContent = 'Invalid email or password';
+                    document.getElementById('loginError').textContent = 'Ungültige E-Mail oder Passwort';
                 }
             } catch (error) {
                 console.error('Login error:', error);
-                document.getElementById('loginError').textContent = 'Login failed. Please try again.';
+                document.getElementById('loginError').textContent = 'Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.';
             }
         });
 
@@ -2162,11 +2162,11 @@ class BookingApp {
                 if (await this.addUser(firstName, lastName, email, password, role)) {
                     document.getElementById('addUserModal').classList.remove('active');
                     document.getElementById('addUserForm').reset();
-                    alert('User added successfully!');
+                    alert('Benutzer erfolgreich hinzugefügt!');
                 }
             } catch (error) {
                 console.error('Add user error:', error);
-                alert('Failed to add user. Please try again.');
+                alert('Benutzer konnte nicht hinzugefügt werden. Bitte versuchen Sie es erneut.');
             }
         });
 
@@ -2204,7 +2204,7 @@ app.handleUpdateBookingStatus = async (bookingId, status) => {
         console.error('Error updating booking status:', error);
         // Show specific error message if available
         const errorMessage = error.message || 'Unknown error occurred';
-        alert(`Failed to update booking status: ${errorMessage}. Please try again.`);
+        alert(`Buchungsstatus konnte nicht aktualisiert werden: ${errorMessage}. Bitte versuchen Sie es erneut.`);
     }
 };
 
@@ -2213,7 +2213,7 @@ app.handleCancelBooking = async (bookingId) => {
         await app.cancelBooking(bookingId);
     } catch (error) {
         console.error('Error cancelling booking:', error);
-        alert('Failed to cancel booking. Please try again.');
+        alert('Buchung konnte nicht storniert werden. Bitte versuchen Sie es erneut.');
     }
 };
 
@@ -2222,7 +2222,7 @@ app.handleDeleteUser = async (userId) => {
         await app.deleteUser(userId);
     } catch (error) {
         console.error('Error deleting user:', error);
-        alert('Failed to delete user. Please try again.');
+        alert('Benutzer konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.');
     }
 };
 
@@ -2231,6 +2231,6 @@ app.handleBookCourse = async (courseId) => {
         await app.bookCourse(courseId);
     } catch (error) {
         console.error('Error booking course:', error);
-        alert('Failed to book course. Please try again.');
+        alert('Kurs konnte nicht gebucht werden. Bitte versuchen Sie es erneut.');
     }
 };

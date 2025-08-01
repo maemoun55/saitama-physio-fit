@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#00AEEF">
-    <title>Saitama Physio Fit - Booking System</title>
+    <title>Saitama Physio Fit - Buchungssystem</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -21,17 +21,17 @@
     <div id="loginScreen" class="screen active">
         <div class="login-container">
             <div class="logo">
-                <h1>Customer Login</h1>
+                <h1>Therapiezentrum Saitama Physio Fit</h1>
             </div>
             <form id="loginForm">
                 <div class="form-group">
-                    <input type="email" id="email" name="email" placeholder="Email Address" required>
+                    <input type="email" id="email" name="email" placeholder="E-Mail-Adresse" required>
                 </div>
                 <div class="form-group">
-                    <input type="password" id="password" name="password" placeholder="Password" required>
+                    <input type="password" id="password" name="password" placeholder="Passwort" required>
                 </div>
                 <div id="loginError" class="error-message"></div>
-                <button type="submit" class="login-btn">Login</button>
+                <button type="submit" class="login-btn">Anmelden</button>
             </form>
         </div>
     </div>
@@ -45,21 +45,21 @@
             </div>
             <div class="nav-user">
                 <span id="welcomeUser"></span>
-                <button id="logoutBtn" class="btn-secondary">Logout</button>
+                <button id="logoutBtn" class="btn-secondary">Abmelden</button>
             </div>
         </nav>
 
         <!-- Tab Navigation -->
         <div class="tab-navigation">
-            <button class="tab-btn active member-only" data-tab="courses">Home</button>
-            <button class="tab-btn member-only" data-tab="bookings">My Bookings</button>
-            <button class="tab-btn admin-only" data-tab="admin" style="display: none;">Admin Panel</button>
+            <button class="tab-btn active member-only" data-tab="courses">Startseite</button>
+            <button class="tab-btn member-only" data-tab="bookings">Meine Buchungen</button>
+            <button class="tab-btn admin-only" data-tab="admin" style="display: none;">Admin-Panel</button>
         </div>
 
         <!-- Course Selection Tab -->
         <div id="coursesTab" class="tab-content active">
             <div class="container">
-                <h3>Available Courses</h3>
+                <h3>Verfügbare Kurse</h3>
                 <div class="courses-grid" id="coursesGrid">
                     <!-- Courses will be populated by JavaScript -->
                 </div>
@@ -69,7 +69,7 @@
         <!-- My Bookings Tab -->
         <div id="bookingsTab" class="tab-content">
             <div class="container">
-                <h3>My Bookings</h3>
+                <h3>Meine Buchungen</h3>
                 <div id="userBookings" class="bookings-list">
                     <!-- User bookings will be populated by JavaScript -->
                 </div>
@@ -79,21 +79,21 @@
         <!-- Admin Panel Tab -->
         <div id="adminTab" class="tab-content">
             <div class="container">
-                <h3>Admin Panel</h3>
+                <h3>Admin-Panel</h3>
                 
                 <!-- Admin Sub-tabs -->
                 <div class="admin-tabs">
-                    <button class="admin-tab-btn active" data-admin-tab="bookings">All Bookings</button>
-                    <button class="admin-tab-btn" data-admin-tab="pending">Pending Bookings</button>
-                    <button class="admin-tab-btn" data-admin-tab="waitinglist">Waiting List</button>
-                    <button class="admin-tab-btn" data-admin-tab="rejected">Rejected Requests</button>
-                    <button class="admin-tab-btn" data-admin-tab="cancellations">Recent Cancellations</button>
-                    <button class="admin-tab-btn" data-admin-tab="users">User Management</button>
+                    <button class="admin-tab-btn active" data-admin-tab="bookings">Alle Buchungen</button>
+                    <button class="admin-tab-btn" data-admin-tab="pending">Ausstehende Buchungen</button>
+                    <button class="admin-tab-btn" data-admin-tab="waitinglist">Warteliste</button>
+                    <button class="admin-tab-btn" data-admin-tab="rejected">Abgelehnte Anfragen</button>
+                    <button class="admin-tab-btn" data-admin-tab="cancellations">Kürzliche Stornierungen</button>
+                    <button class="admin-tab-btn" data-admin-tab="users">Benutzerverwaltung</button>
                 </div>
 
                 <!-- All Bookings -->
                 <div id="adminBookingsTab" class="admin-tab-content active">
-                    <h4>All Bookings</h4>
+                    <h4>Alle Buchungen</h4>
                     <div id="allBookings" class="bookings-list">
                         <!-- All bookings will be populated by JavaScript -->
                     </div>
@@ -101,7 +101,7 @@
 
                 <!-- Pending Bookings -->
                 <div id="adminPendingTab" class="admin-tab-content">
-                    <h4>Pending Bookings</h4>
+                    <h4>Ausstehende Buchungen</h4>
                     <div id="pendingBookings" class="bookings-list">
                         <!-- Pending bookings will be populated by JavaScript -->
                     </div>
@@ -109,7 +109,7 @@
 
                 <!-- Waiting List -->
                 <div id="adminWaitinglistTab" class="admin-tab-content">
-                    <h4>Waiting List</h4>
+                    <h4>Warteliste</h4>
                     <div id="waitingListBookings" class="bookings-list">
                         <!-- Waiting list bookings will be populated by JavaScript -->
                     </div>
@@ -117,7 +117,7 @@
 
                 <!-- Rejected Requests -->
                 <div id="adminRejectedTab" class="admin-tab-content">
-                    <h4>Rejected Requests</h4>
+                    <h4>Abgelehnte Anfragen</h4>
                     <div id="rejectedBookings" class="bookings-list">
                         <!-- Rejected bookings will be populated by JavaScript -->
                     </div>
@@ -125,7 +125,7 @@
 
                 <!-- Recent Cancellations -->
                 <div id="adminCancellationsTab" class="admin-tab-content">
-                    <h4>Recent Cancellations</h4>
+                    <h4>Kürzliche Stornierungen</h4>
                     <div id="cancelledBookings" class="bookings-list">
                         <!-- Cancelled bookings will be populated by JavaScript -->
                     </div>
@@ -133,9 +133,9 @@
 
                 <!-- User Management -->
                 <div id="adminUsersTab" class="admin-tab-content">
-                    <h4>User Management</h4>
+                    <h4>Benutzerverwaltung</h4>
                     <div class="user-actions">
-                        <button id="addUserBtn" class="btn-primary">Add New User</button>
+                        <button id="addUserBtn" class="btn-primary">Neuen Benutzer hinzufügen</button>
                     </div>
                     <div id="allUsers" class="users-list">
                         <!-- All users will be populated by JavaScript -->
@@ -149,34 +149,34 @@
     <div id="addUserModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h3>Add New User</h3>
+            <h3>Neuen Benutzer hinzufügen</h3>
             <form id="addUserForm">
                 <div class="input-group">
-                    <label for="newFirstName">First Name</label>
+                    <label for="newFirstName">Vorname</label>
                     <input type="text" id="newFirstName" name="newFirstName" required>
                 </div>
                 <div class="input-group">
-                    <label for="newLastName">Last Name</label>
+                    <label for="newLastName">Nachname</label>
                     <input type="text" id="newLastName" name="newLastName" required>
                 </div>
                 <div class="input-group">
-                    <label for="newEmail">Email</label>
+                    <label for="newEmail">E-Mail</label>
                     <input type="email" id="newEmail" name="newEmail" required>
                 </div>
 
                 <div class="input-group">
-                    <label for="newPassword">Password</label>
+                    <label for="newPassword">Passwort</label>
                     <input type="password" id="newPassword" name="newPassword" required>
                 </div>
                 <div class="input-group">
-                    <label for="newRole">Role</label>
+                    <label for="newRole">Rolle</label>
                     <select id="newRole" name="newRole" required>
-                        <option value="Member">Member</option>
-                        <option value="Admin">Admin</option>
+                        <option value="Member">Mitglied</option>
+                        <option value="Admin">Administrator</option>
                     </select>
                 </div>
 
-                <button type="submit" class="btn-primary">Add User</button>
+                <button type="submit" class="btn-primary">Benutzer hinzufügen</button>
             </form>
         </div>
     </div>
@@ -185,9 +185,9 @@
     <div id="bookingModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h3>Booking Confirmation</h3>
+            <h3>Buchungsbestätigung</h3>
             <p id="bookingMessage"></p>
-            <button id="confirmBooking" class="btn-primary">Confirm Booking</button>
+            <button id="confirmBooking" class="btn-primary">Buchung bestätigen</button>
         </div>
     </div>
 
