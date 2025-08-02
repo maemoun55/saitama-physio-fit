@@ -1193,7 +1193,7 @@ class BookingApp {
                 // Determine status class based on booking status
                 let statusClass = 'status-available';
                 if (userBooking) {
-                    if (userBooking.status === 'Waiting List') {
+                    if (userBooking.status === 'Warteliste') {
                         statusClass = 'status-waiting-list';
                     } else {
                         statusClass = 'status-booked';
@@ -1622,7 +1622,7 @@ class BookingApp {
 
     renderWaitingListBookings() {
         const waitingListContainer = document.getElementById('waitingListBookings');
-        const waitingListBookings = this.bookings.filter(b => b.status === 'Waiting List');
+        const waitingListBookings = this.bookings.filter(b => b.status === 'Warteliste');
         
         if (waitingListBookings.length === 0) {
             waitingListContainer.innerHTML = '<p class="empty-state">Keine Buchungen auf der Warteliste.</p>';
