@@ -912,6 +912,9 @@ class BookingApp {
             // Skip weekends (Saturday = 6, Sunday = 0)
             if (dayOfWeek === 0 || dayOfWeek === 6) continue;
             
+            // Skip German holidays
+            if (this.isGermanHoliday(currentDate)) continue;
+            
             const daySchedule = weeklySchedule[dayOfWeek];
             if (daySchedule) {
                 daySchedule.forEach(session => {
@@ -945,6 +948,71 @@ class BookingApp {
         }
         
         return courses;
+    }
+
+    // Function to check if a date is a German holiday
+    isGermanHoliday(date) {
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1; // JavaScript months are 0-indexed
+        const day = date.getDate();
+        
+        // Fixed holidays
+        const fixedHolidays = [
+            { month: 1, day: 1 },   // New Year's Day
+            { month: 5, day: 1 },   // Labour Day
+            { month: 10, day: 3 },  // German Unity Day
+            { month: 12, day: 25 }, // Christmas Day
+            { month: 12, day: 26 }  // Boxing Day
+        ];
+        
+        // Check fixed holidays
+        for (const holiday of fixedHolidays) {
+            if (month === holiday.month && day === holiday.day) {
+                return true;
+            }
+        }
+        
+        // Calculate Easter Sunday for variable holidays
+        const easter = this.calculateEaster(year);
+        const easterMonth = easter.getMonth() + 1;
+        const easterDay = easter.getDate();
+        
+        // Variable holidays based on Easter
+        const variableHolidays = [
+            { month: easterMonth, day: easterDay - 2 },     // Good Friday
+            { month: easterMonth, day: easterDay + 1 },     // Easter Monday
+            { month: easterMonth, day: easterDay + 39 },    // Ascension Day
+            { month: easterMonth, day: easterDay + 50 }     // Whit Monday
+        ];
+        
+        // Check variable holidays (handle month overflow)
+        for (const holiday of variableHolidays) {
+            let holidayDate = new Date(year, easter.getMonth(), easterDay + (holiday.day - easterDay));
+            if (holidayDate.getMonth() + 1 === month && holidayDate.getDate() === day) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    // Calculate Easter Sunday using the algorithm
+    calculateEaster(year) {
+        const a = year % 19;
+        const b = Math.floor(year / 100);
+        const c = year % 100;
+        const d = Math.floor(b / 4);
+        const e = b % 4;
+        const f = Math.floor((b + 8) / 25);
+        const g = Math.floor((b - f + 1) / 3);
+        const h = (19 * a + b - d - g + 15) % 30;
+        const i = Math.floor(c / 4);
+        const k = c % 4;
+        const l = (32 + 2 * e + 2 * i - h - k) % 7;
+        const m = Math.floor((a + 11 * h + 22 * l) / 451);
+        const n = Math.floor((h + l - 7 * m + 114) / 31);
+        const p = (h + l - 7 * m + 114) % 31;
+        return new Date(year, n - 1, p + 1);
     }
 
     // Authentication
