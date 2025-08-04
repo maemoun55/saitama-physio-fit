@@ -1184,7 +1184,7 @@ class BookingApp {
                 const userBooking = this.bookings.find(b => 
                     b.userId === this.currentUser.id && 
                     b.courseId === course.id && 
-                    (b.status === 'Ausstehend' || b.status === 'Bestätigt' || b.status === 'Warteliste')
+                    (b.status === 'Ausstehend' || b.status === 'Bestätigt' || b.status === 'Warteliste' || b.status === 'Abgelehnt')
                 );
                 
                 const courseCard = document.createElement('div');
@@ -1195,6 +1195,8 @@ class BookingApp {
                 if (userBooking) {
                     if (userBooking.status === 'Warteliste') {
                         statusClass = 'status-waiting-list';
+                    } else if (userBooking.status === 'Abgelehnt') {
+                        statusClass = 'status-rejected';
                     } else {
                         statusClass = 'status-booked';
                     }
