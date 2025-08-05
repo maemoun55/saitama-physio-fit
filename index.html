@@ -83,16 +83,16 @@
                 
                 <!-- Admin Sub-tabs -->
                 <div class="admin-tabs">
-                    <button class="admin-tab-btn active" data-admin-tab="bookings">Alle Buchungen</button>
-                    <button class="admin-tab-btn" data-admin-tab="pending">Ausstehende Buchungen</button>
+                    <button class="admin-tab-btn active" data-admin-tab="pending">Ausstehende Buchungen</button>
                     <button class="admin-tab-btn" data-admin-tab="waitinglist">Warteliste</button>
                     <button class="admin-tab-btn" data-admin-tab="rejected">Abgelehnte Anfragen</button>
                     <button class="admin-tab-btn" data-admin-tab="cancellations">Kürzliche Stornierungen</button>
                     <button class="admin-tab-btn" data-admin-tab="users">Benutzerverwaltung</button>
+                    <button class="admin-tab-btn" data-admin-tab="bookings">Alle Buchungen</button>
                 </div>
 
                 <!-- All Bookings -->
-                <div id="adminBookingsTab" class="admin-tab-content active">
+                <div id="adminBookingsTab" class="admin-tab-content">
                     <h4>Alle Buchungen</h4>
                     <div id="allBookings" class="bookings-list">
                         <!-- All bookings will be populated by JavaScript -->
@@ -100,7 +100,7 @@
                 </div>
 
                 <!-- Pending Bookings -->
-                <div id="adminPendingTab" class="admin-tab-content">
+                <div id="adminPendingTab" class="admin-tab-content active">
                     <h4>Ausstehende Buchungen</h4>
                     <div id="pendingBookings" class="bookings-list">
                         <!-- Pending bookings will be populated by JavaScript -->

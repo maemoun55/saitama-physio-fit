@@ -1150,7 +1150,7 @@ class BookingApp {
             adminTab.style.display = 'block';
             memberTabs.forEach(tab => tab.style.display = 'none');
             this.showTab('admin');
-            this.renderAllBookings();
+            this.renderPendingBookings();
             this.renderAllUsers();
             
             // Set up auto-refresh for admin panel every 60 seconds
@@ -1674,6 +1674,8 @@ class BookingApp {
             const userFirstName = user.firstName || user.first_name || 'Unbekannt';
             const userLastName = user.lastName || user.last_name || 'Benutzer';
             
+            const isProcessed = booking.processed || false;
+            
             bookingItem.innerHTML = `
                 <div class="booking-info">
                     <h5>${courseName} (STORNIERT)</h5>
@@ -1685,6 +1687,13 @@ class BookingApp {
                 </div>
                 <div class="booking-status status-cancelled">
                     Storniert
+                </div>
+                <div class="booking-actions">
+                    <button class="btn-check ${isProcessed ? 'processed' : ''}" 
+                            onclick="app.handleMarkCancellationProcessed(${booking.id})" 
+                            ${isProcessed ? 'disabled' : ''}>
+                        ${isProcessed ? '✓ Bearbeitet' : '✓ Als bearbeitet markieren'}
+                    </button>
                 </div>
             `;             cancelledBookingsContainer.appendChild(bookingItem);
         });
@@ -2256,6 +2265,39 @@ class BookingApp {
             });
         });
     }
+
+    async markCancellationProcessed(bookingId) {
+        try {
+            // Find the booking
+            const booking = this.bookings.find(b => b.id === bookingId);
+            if (!booking) {
+                throw new Error('Buchung nicht gefunden');
+            }
+
+            if (booking.status !== 'Storniert') {
+                throw new Error('Nur stornierte Buchungen können als bearbeitet markiert werden');
+            }
+
+            // Mark as processed
+            booking.processed = true;
+            booking.processedAt = new Date().toISOString();
+            booking.processedBy = this.currentUser.email;
+
+            // Save data
+            await this.saveData();
+
+            // Re-render cancelled bookings
+            this.renderCancelledBookings();
+
+            // Show success message
+            this.showUploadStatus('Stornierung wurde als bearbeitet markiert.', 'success');
+
+        } catch (error) {
+            console.error('Error marking cancellation as processed:', error);
+            this.showUploadStatus('Fehler beim Markieren als bearbeitet.', 'error');
+            throw error;
+        }
+    }
 }
 
 // Initialize the application
@@ -2302,5 +2344,14 @@ app.handleBookCourse = async (courseId) => {
     } catch (error) {
         console.error('Error booking course:', error);
         alert('Kurs konnte nicht gebucht werden. Bitte versuchen Sie es erneut.');
+    }
+};
+
+app.handleMarkCancellationProcessed = async (bookingId) => {
+    try {
+        await app.markCancellationProcessed(bookingId);
+    } catch (error) {
+        console.error('Error marking cancellation as processed:', error);
+        alert('Fehler beim Markieren als bearbeitet. Bitte versuchen Sie es erneut.');
     }
 };

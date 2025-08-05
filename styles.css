@@ -412,6 +412,40 @@ body {
     box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
 }
 
+.btn-check {
+    background-color: var(--success-green);
+    color: white;
+    border: 1px solid var(--success-green);
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-check:hover {
+    background-color: #7bb83a;
+    border-color: #7bb83a;
+    transform: translateY(-1px);
+}
+
+.btn-check.processed {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.btn-check.processed:hover {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    transform: none;
+}
+
 /* Error Messages */
 .error-message {
     color: var(--error-red);
