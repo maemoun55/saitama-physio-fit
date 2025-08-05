@@ -528,6 +528,9 @@ class BookingApp {
                     status TEXT NOT NULL DEFAULT 'pending',
                     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                     cancellation_date TIMESTAMP WITH TIME ZONE,
+                    processed BOOLEAN DEFAULT FALSE,
+                    processed_at TIMESTAMP WITH TIME ZONE,
+                    processed_by TEXT,
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                     FOREIGN KEY (user_id) REFERENCES users(id),
                     FOREIGN KEY (course_id) REFERENCES courses(id)
@@ -541,6 +544,25 @@ class BookingApp {
                 console.log('Bookings table created successfully');
             }
             
+            // Add processed columns to existing bookings table if they don't exist
+            try {
+                const alterTableSQL = `
+                    ALTER TABLE bookings 
+                    ADD COLUMN IF NOT EXISTS processed BOOLEAN DEFAULT FALSE,
+                    ADD COLUMN IF NOT EXISTS processed_at TIMESTAMP WITH TIME ZONE,
+                    ADD COLUMN IF NOT EXISTS processed_by TEXT;
+                `;
+                
+                const { error: alterError } = await supabase.rpc('exec_sql', { sql: alterTableSQL });
+                if (alterError) {
+                    console.log('Could not alter bookings table via RPC, columns might already exist:', alterError);
+                } else {
+                    console.log('Bookings table updated with processed columns');
+                }
+            } catch (alterError) {
+                console.log('Could not alter bookings table, columns might already exist:', alterError);
+            }
+            
             console.log('Table creation process completed');
             
         } catch (error) {
@@ -548,7 +570,7 @@ class BookingApp {
             console.log('Please create the following tables manually in your Supabase dashboard:');
             console.log('1. users (id TEXT PRIMARY KEY, first_name TEXT, last_name TEXT, email TEXT UNIQUE, username TEXT UNIQUE, password TEXT, role TEXT, profile_picture TEXT, created_at TIMESTAMP)');
             console.log('2. courses (id TEXT PRIMARY KEY, name TEXT, time TEXT, date TEXT, date_display TEXT, day_of_week TEXT, created_at TIMESTAMP)');
-            console.log('3. bookings (id TEXT PRIMARY KEY, user_id TEXT, course_id TEXT, status TEXT, timestamp TIMESTAMP, cancellation_date TIMESTAMP, created_at TIMESTAMP)');
+            console.log('3. bookings (id TEXT PRIMARY KEY, user_id TEXT, course_id TEXT, status TEXT, timestamp TIMESTAMP, cancellation_date TIMESTAMP, processed BOOLEAN DEFAULT FALSE, processed_at TIMESTAMP, processed_by TEXT, created_at TIMESTAMP)');
         }
     }
 
@@ -637,7 +659,10 @@ class BookingApp {
                 this.bookings = (bookings || []).map(booking => ({
                     ...booking,
                     userId: booking.user_id,
-                    courseId: booking.course_id
+                    courseId: booking.course_id,
+                    processed: booking.processed || false,
+                    processedAt: booking.processed_at,
+                    processedBy: booking.processed_by
                 }));
                 console.log(`Successfully loaded ${this.bookings.length} bookings from Supabase`);
             } catch (bookingError) {
@@ -719,7 +744,10 @@ class BookingApp {
                     user_id: booking.user_id || booking.userId,
                     course_id: booking.course_id || booking.courseId,
                     status: booking.status,
-                    timestamp: booking.timestamp
+                    timestamp: booking.timestamp,
+                    processed: booking.processed || false,
+                    processed_at: booking.processedAt || null,
+                    processed_by: booking.processedBy || null
                 }));
                 
                 const { error: bookingsError } = await supabase
