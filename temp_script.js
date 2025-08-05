@@ -1424,8 +1424,8 @@ class BookingApp {
         
         userBookings.innerHTML = '';
         
-        // Sort bookings by timestamp in descending order (latest first)
-        const sortedMyBookings = [...myBookings].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        // Sort bookings by timestamp in ascending order (chronological order - earliest first)
+        const sortedMyBookings = [...myBookings].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
         
         sortedMyBookings.forEach(booking => {
             let course = this.courses.find(c => c.id === booking.courseId);
