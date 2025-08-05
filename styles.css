@@ -170,6 +170,16 @@ body {
     margin-bottom: 2.5rem;
 }
 
+.logo-image {
+    width: 80px;
+    height: auto;
+    margin-bottom: 1rem;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
 .logo h1 {
     color: var(--primary-blue);
     font-size: 1.75rem;
