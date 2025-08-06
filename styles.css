@@ -1066,10 +1066,12 @@ body::before {
 }
 
 /* Ausstehend (Pending) - Yellow */
-.status-pending {
+.status-pending,
+.status-ausstehend {
     color: #d97706;
     border-color: #fbbf24;
     background: #fef3c7;
+    font-weight: 700;
 }
 
 /* Bestätigt (Confirmed) - Dark Green */
