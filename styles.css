@@ -1074,33 +1074,39 @@ body::before {
     background: #fef3c7;
 }
 
-/* Bestätigt (Confirmed) - Green */
-.status-confirmed {
-    color: #059669;
+/* Bestätigt (Confirmed) - Dark Green */
+.status-confirmed,
+.status-bestätigt {
+    color: #065f46;
     border-color: #34d399;
     background: #d1fae5;
+    font-weight: 700;
 }
 
 /* Specific styling for booking status in Meine Buchungen tab */
 #bookingsTab .booking-status.status-bestätigt,
 #bookingsTab .booking-status.status-confirmed {
-    color: #000000 !important;
+    color: #065f46 !important;
     font-weight: 700;
 }
 
 /* Abgelehnt (Rejected) - Red */
-.status-rejected {
+.status-rejected,
+.status-abgelehnt {
     color: #dc2626;
     border-color: #f87171;
     background: #fee2e2;
+    font-weight: 700;
 }
 
 /* Warteliste (Waiting List) - Blue */
 .status-waiting,
-.status-waiting-list {
-    color: #2563eb;
+.status-waiting-list,
+.status-warteliste {
+    color: #1e40af;
     border-color: #60a5fa;
     background: #dbeafe;
+    font-weight: 600;
 }
 
 .status-list {
