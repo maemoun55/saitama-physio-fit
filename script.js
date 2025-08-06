@@ -1365,25 +1365,58 @@ class BookingApp {
     }
 
     async logout() {
+        console.log('=== LOGOUT FUNCTION CALLED ===');
+        console.log('Current user before clearing:', this.currentUser);
+        
         this.currentUser = null;
+        console.log('Current user after clearing:', this.currentUser);
         
         // Sign out from Supabase auth
         if (this.supabaseReady) {
             try {
+                console.log('Signing out from Supabase...');
                 await this.supabase.auth.signOut();
+                console.log('Supabase signout successful');
             } catch (error) {
                 console.error('Error signing out:', error);
             }
+        } else {
+            console.log('Supabase not ready, skipping auth signout');
         }
         
+        console.log('Calling showLoginScreen...');
         this.showLoginScreen();
+        console.log('=== LOGOUT FUNCTION COMPLETED ===');
     }
 
     // Screen Management
     showLoginScreen() {
-        document.getElementById('loginScreen').classList.add('active');
-        document.getElementById('mainScreen').classList.remove('active');
-        document.getElementById('loginForm').reset();
+        console.log('=== SHOW LOGIN SCREEN CALLED ===');
+        const loginScreen = document.getElementById('loginScreen');
+        const mainScreen = document.getElementById('mainScreen');
+        const loginForm = document.getElementById('loginForm');
+        
+        console.log('Login screen element:', loginScreen);
+        console.log('Main screen element:', mainScreen);
+        console.log('Login form element:', loginForm);
+        
+        console.log('Before - Login screen classes:', loginScreen.className);
+        console.log('Before - Main screen classes:', mainScreen.className);
+        
+        loginScreen.classList.add('active');
+        mainScreen.classList.remove('active');
+        
+        console.log('After - Login screen classes:', loginScreen.className);
+        console.log('After - Main screen classes:', mainScreen.className);
+        
+        if (loginForm) {
+            loginForm.reset();
+            console.log('Login form reset');
+        } else {
+            console.error('Login form not found!');
+        }
+        
+        console.log('=== SHOW LOGIN SCREEN COMPLETED ===');
     }
 
     async showMainScreen() {
@@ -2573,9 +2606,68 @@ class BookingApp {
         });
 
         // Logout button
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            this.logout();
-        });
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            console.log('Logout button found, adding event listener');
+            console.log('Button element:', logoutBtn);
+            console.log('Button classes:', logoutBtn.className);
+            console.log('Button style display:', window.getComputedStyle(logoutBtn).display);
+            console.log('Button style visibility:', window.getComputedStyle(logoutBtn).visibility);
+            
+            // Make the logout button more visible
+            logoutBtn.style.fontWeight = 'bold';
+            logoutBtn.style.border = '2px solid #64748b';
+            
+            logoutBtn.addEventListener('click', (event) => {
+                console.log('=== LOGOUT BUTTON CLICKED ===');
+                console.log('Event:', event);
+                console.log('Current user before logout:', this.currentUser);
+                event.preventDefault();
+                event.stopPropagation();
+                this.logout();
+            });
+            
+            // Test if button is clickable
+            logoutBtn.addEventListener('mouseenter', () => {
+                console.log('Mouse entered logout button - hover working');
+                logoutBtn.style.backgroundColor = '#f1f5f9';
+                logoutBtn.style.transform = 'translateY(-2px)';
+                logoutBtn.style.boxShadow = '0 6px 15px rgba(0, 0, 0, 0.2)';
+            });
+            
+            logoutBtn.addEventListener('mouseleave', () => {
+                console.log('Mouse left logout button');
+                logoutBtn.style.backgroundColor = '#ffffff';
+                logoutBtn.style.transform = 'translateY(0)';
+                logoutBtn.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+            });
+        } else {
+            console.error('Logout button not found!');
+            // Create the logout button if it doesn't exist
+            const navUser = document.querySelector('.nav-user');
+            if (navUser) {
+                const newLogoutBtn = document.createElement('button');
+                newLogoutBtn.id = 'logoutBtn';
+                newLogoutBtn.className = 'btn-secondary';
+                newLogoutBtn.textContent = 'Abmelden';
+                newLogoutBtn.style.fontWeight = 'bold';
+                newLogoutBtn.style.border = '2px solid #64748b';
+                
+                newLogoutBtn.addEventListener('click', (event) => {
+                    console.log('=== NEW LOGOUT BUTTON CLICKED ===');
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.logout();
+                });
+                
+                navUser.appendChild(newLogoutBtn);
+                console.log('Created new logout button');
+            } else {
+                console.error('Nav user container not found!');
+            }
+        }
+        
+
 
         // Tab navigation
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -2638,49 +2730,42 @@ class BookingApp {
     }
 }
 
-// Initialize the application
-const app = new BookingApp();
+// Initialize the application after DOM is ready
 
-// Global functions for inline event handlers
-window.app = app;
-
-// Async wrapper functions for inline handlers
-app.handleUpdateBookingStatus = async (bookingId, status) => {
-    try {
-        await app.updateBookingStatus(bookingId, status);
-        // Show success message
-        // Booking status updated - no popup needed for smoother UX
-    } catch (error) {
-        console.error('Error updating booking status:', error);
-        // Show specific error message if available
-        const errorMessage = error.message || 'Unknown error occurred';
-        alert(`Failed to update booking status: ${errorMessage}. Please try again.`);
-    }
-};
-
-app.handleCancelBooking = async (bookingId) => {
-    try {
-        await app.cancelBooking(bookingId);
-    } catch (error) {
-        console.error('Error cancelling booking:', error);
-        alert('Failed to cancel booking. Please try again.');
-    }
-};
-
-app.handleDeleteUser = async (userId) => {
-    try {
-        await app.deleteUser(userId);
-    } catch (error) {
-        console.error('Error deleting user:', error);
-        alert('Failed to delete user. Please try again.');
-    }
-};
-
-app.handleBookCourse = async (courseId) => {
-    try {
-        await app.bookCourse(courseId);
-    } catch (error) {
-        console.error('Error booking course:', error);
-        alert('Failed to book course. Please try again.');
-    }
-};
+document.addEventListener('DOMContentLoaded', () => {
+    const app = new BookingApp();
+    window.app = app;
+    app.handleUpdateBookingStatus = async (bookingId, status) => {
+        try {
+            await app.updateBookingStatus(bookingId, status);
+        } catch (error) {
+            console.error('Error updating booking status:', error);
+            const errorMessage = error.message || 'Unknown error occurred';
+            alert(`Failed to update booking status: ${errorMessage}. Please try again.`);
+        }
+    };
+    app.handleCancelBooking = async (bookingId) => {
+        try {
+            await app.cancelBooking(bookingId);
+        } catch (error) {
+            console.error('Error cancelling booking:', error);
+            alert('Failed to cancel booking. Please try again.');
+        }
+    };
+    app.handleDeleteUser = async (userId) => {
+        try {
+            await app.deleteUser(userId);
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            alert('Failed to delete user. Please try again.');
+        }
+    };
+    app.handleBookCourse = async (courseId) => {
+        try {
+            await app.bookCourse(courseId);
+        } catch (error) {
+            console.error('Error booking course:', error);
+            alert('Failed to book course. Please try again.');
+        }
+    };
+});
