@@ -1301,21 +1301,23 @@ class BookingApp {
             dayCoursesGrid.className = 'day-courses-grid';
             
             coursesByDate[date].forEach(course => {
+                // Handle both English and German status names
+                const validStatuses = ['Ausstehend', 'Bestätigt', 'Warteliste', 'Abgelehnt', 'Pending', 'Confirmed', 'Waiting List', 'Rejected'];
                 const userBooking = this.bookings.find(b => 
                     b.userId === this.currentUser.id && 
                     b.courseId === course.id && 
-                    (b.status === 'Ausstehend' || b.status === 'Bestätigt' || b.status === 'Warteliste' || b.status === 'Abgelehnt')
+                    validStatuses.includes(b.status)
                 );
                 
                 const courseCard = document.createElement('div');
                 courseCard.className = 'course-card';
                 
-                // Determine status class based on booking status
+                // Determine status class based on booking status (handle both English and German)
                 let statusClass = 'status-available';
                 if (userBooking) {
-                    if (userBooking.status === 'Warteliste') {
+                    if (userBooking.status === 'Warteliste' || userBooking.status === 'Waiting List') {
                         statusClass = 'status-waiting-list';
-                    } else if (userBooking.status === 'Abgelehnt') {
+                    } else if (userBooking.status === 'Abgelehnt' || userBooking.status === 'Rejected') {
                         statusClass = 'status-rejected';
                     } else {
                         statusClass = 'status-booked';
@@ -1452,6 +1454,9 @@ class BookingApp {
         const userBookings = document.getElementById('userBookings');
         const myBookings = this.bookings.filter(b => b.userId === this.currentUser.id);
         
+        // Filter bookings for current user
+        console.log('Loading user bookings for user:', this.currentUser.id);
+        
         if (myBookings.length === 0) {
             userBookings.innerHTML = `
                 <div class="empty-state">
@@ -1520,7 +1525,9 @@ class BookingApp {
             console.log('Rendering booking:', booking.id, 'Status:', booking.status);
             
             let cancelButton = '';
-            if (booking.status === 'Bestätigt' || booking.status === 'Ausstehend' || booking.status === 'Warteliste') {
+            // Handle both English and German status names
+            const cancellableStatuses = ['Bestätigt', 'Ausstehend', 'Warteliste', 'Confirmed', 'Pending', 'Waiting List'];
+            if (cancellableStatuses.includes(booking.status)) {
                 console.log('Adding cancel button for booking:', booking.id);
                 cancelButton = `
                     <div class="booking-actions">
