@@ -1080,6 +1080,13 @@ body::before {
     background: #d1fae5;
 }
 
+/* Specific styling for booking status in Meine Buchungen tab */
+#bookingsTab .booking-status.status-bestätigt,
+#bookingsTab .booking-status.status-confirmed {
+    color: #000000 !important;
+    font-weight: 700;
+}
+
 /* Abgelehnt (Rejected) - Red */
 .status-rejected {
     color: #dc2626;
