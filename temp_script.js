@@ -1422,10 +1422,41 @@ class BookingApp {
             return;
         }
         
+        // Filter out past courses and sort bookings by timestamp in descending order (chronological order - most recent first)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+        
+        const futureBookings = myBookings.filter(booking => {
+            let course = this.courses.find(c => c.id === booking.courseId);
+            
+            // If course not found in current courses, try to reconstruct from booking data
+            if (!course && booking.courseData) {
+                course = booking.courseData;
+            }
+            
+            if (course && course.date) {
+                const courseDate = new Date(course.date);
+                courseDate.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+                return courseDate >= today; // Only show present and future courses
+            }
+            
+            // If no course date available, show the booking (fallback)
+            return true;
+        });
+        
+        if (futureBookings.length === 0) {
+            userBookings.innerHTML = `
+                <div class="empty-state">
+                    <h4>Keine zukünftigen Buchungen</h4>
+                    <p>Sie haben keine zukünftigen Buchungen. Vergangene Kurse werden nicht angezeigt. Besuchen Sie die Startseite, um einen neuen Kurs zu buchen.</p>
+                </div>
+            `;
+            return;
+        }
+        
         userBookings.innerHTML = '';
         
-        // Sort bookings by timestamp in ascending order (chronological order - earliest first)
-        const sortedMyBookings = [...myBookings].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        const sortedMyBookings = [...futureBookings].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
         sortedMyBookings.forEach(booking => {
             let course = this.courses.find(c => c.id === booking.courseId);
@@ -2383,3 +2414,14 @@ app.handleMarkCancellationProcessed = async (bookingId) => {
         alert('Fehler beim Markieren als bearbeitet. Bitte versuchen Sie es erneut.');
     }
 };
+
+// Initialize the application when DOM is loaded
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOM loaded, initializing app...');
+    try {
+        await app.init();
+        console.log('App initialized successfully');
+    } catch (error) {
+        console.error('Error initializing app:', error);
+    }
+});
