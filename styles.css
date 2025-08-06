@@ -1005,12 +1005,11 @@ body::before {
 }
 
 .course-status.status-waiting-list {
-    background: var(--glass-bg);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    color: var(--text-white);
-    border: 1px solid var(--glass-border);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    background: #dbeafe;
+    color: #2563eb;
+    border: 1px solid #60a5fa;
+    font-weight: 600;
+    text-shadow: none;
 }
 
 /* Bookings List */
