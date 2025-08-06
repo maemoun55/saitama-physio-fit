@@ -1136,21 +1136,28 @@ class BookingApp {
             clearInterval(this.autoRefreshInterval);
         }
         
-        // Set up auto-refresh every 60 seconds for admin panel
+        // Set up auto-refresh every 60 seconds for both admin and member users
         this.autoRefreshInterval = setInterval(async () => {
-            if (this.currentUser && this.currentUser.role === 'Admin') {
-                console.log('Auto-refreshing admin panel...');
-                await this.loadData();
-                this.renderAllBookings();
-                this.renderPendingBookings();
-                this.renderWaitingListBookings();
-                this.renderRejectedBookings();
-                this.renderCancelledBookings();
-                this.renderAllUsers();
+            if (this.currentUser) {
+                if (this.currentUser.role === 'Admin') {
+                    console.log('Auto-refreshing admin panel...');
+                    await this.loadData();
+                    this.renderAllBookings();
+                    this.renderPendingBookings();
+                    this.renderWaitingListBookings();
+                    this.renderRejectedBookings();
+                    this.renderCancelledBookings();
+                    this.renderAllUsers();
+                } else {
+                    console.log('Auto-refreshing member view...');
+                    await this.loadData();
+                    this.renderCourses();
+                    this.renderUserBookings();
+                }
             }
         }, 60000); // 60 seconds
         
-        console.log('Auto-refresh enabled for admin panel (60 seconds)');
+        console.log('Auto-refresh enabled for all users (60 seconds)');
     }
 
     logout() {
@@ -1204,9 +1211,6 @@ class BookingApp {
             this.showTab('admin');
             this.renderPendingBookings();
             this.renderAllUsers();
-            
-            // Set up auto-refresh for admin panel every 60 seconds
-            this.setupAutoRefresh();
         } else {
             adminTab.style.display = 'none';
             memberTabs.forEach(tab => tab.style.display = 'block');
@@ -1214,6 +1218,9 @@ class BookingApp {
             this.renderCourses();
             this.renderUserBookings();
         }
+        
+        // Set up auto-refresh for all users every 60 seconds
+        this.setupAutoRefresh();
     }
 
     showTab(tabName) {
