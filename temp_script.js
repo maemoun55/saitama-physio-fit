@@ -655,15 +655,39 @@ class BookingApp {
                     throw bookingsError;
                 }
                 
-                // Add compatibility fields for bookings
-                this.bookings = (bookings || []).map(booking => ({
-                    ...booking,
-                    userId: booking.user_id,
-                    courseId: booking.course_id,
-                    processed: booking.processed || false,
-                    processedAt: booking.processed_at,
-                    processedBy: booking.processed_by
-                }));
+                // Add compatibility fields for bookings and attach course data
+                this.bookings = (bookings || []).map(booking => {
+                    const processedBooking = {
+                        ...booking,
+                        userId: booking.user_id,
+                        courseId: booking.course_id,
+                        processed: booking.processed || false,
+                        processedAt: booking.processed_at,
+                        processedBy: booking.processed_by
+                    };
+                    
+                    // Find the corresponding course to get current data
+                    const course = this.courses.find(c => c.id === booking.course_id);
+                    if (course) {
+                        processedBooking.courseData = {
+                            name: course.name,
+                            date_display: course.date_display,
+                            time: course.time,
+                            date: course.date
+                        };
+                        processedBooking.courseName = course.name;
+                        processedBooking.courseDate = course.date_display;
+                        processedBooking.courseTime = course.time;
+                    } else {
+                        // Fallback for missing course data
+                        processedBooking.courseData = null;
+                        processedBooking.courseName = booking.course_name || 'Unbekannter Kurs';
+                        processedBooking.courseDate = booking.course_date || 'Unbekanntes Datum';
+                        processedBooking.courseTime = booking.course_time || 'Unbekannte Zeit';
+                    }
+                    
+                    return processedBooking;
+                });
                 console.log(`Successfully loaded ${this.bookings.length} bookings from Supabase`);
             } catch (bookingError) {
                 console.error('Failed to load bookings:', bookingError);
@@ -1391,8 +1415,24 @@ class BookingApp {
                 throw error;
             }
 
-            // Add the new booking to the local array for immediate UI update
-            this.bookings.push(...data.map(b => ({ ...b, userId: b.user_id, courseId: b.course_id })));
+            // Add the new booking to the local array for immediate UI update with course data
+            this.bookings.push(...data.map(b => {
+                const bookingWithCourseData = { ...b, userId: b.user_id, courseId: b.course_id };
+                
+                // Add course data for display (stored locally, not in Supabase)
+                bookingWithCourseData.courseData = course ? {
+                    name: course.name,
+                    date_display: course.date_display,
+                    time: course.time,
+                    date: course.date
+                } : null;
+                
+                bookingWithCourseData.courseName = course?.name;
+                bookingWithCourseData.courseDate = course?.date_display;
+                bookingWithCourseData.courseTime = course?.time;
+                
+                return bookingWithCourseData;
+            }));
             console.log('Booking created successfully:', data[0]);
 
             // Re-render relevant parts of the UI
