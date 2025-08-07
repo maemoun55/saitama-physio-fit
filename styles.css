@@ -1570,6 +1570,17 @@ body::before {
     margin-bottom: 1.5rem;
 }
 
+/* Fix label visibility in modals */
+.modal-content .form-group label {
+    color: #1e293b !important;
+    text-shadow: none;
+}
+
+.modal-content .input-group label {
+    color: #1e293b !important;
+    text-shadow: none;
+}
+
 .modal-footer {
     display: flex;
     justify-content: flex-end;
