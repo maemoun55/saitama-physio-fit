@@ -1581,6 +1581,20 @@ body::before {
     text-shadow: none;
 }
 
+/* Fix input field visibility in modals */
+.modal-content .form-group input,
+.modal-content .input-group input,
+.modal-content .input-group select {
+    color: #1e293b !important;
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+.modal-content .form-group input::placeholder,
+.modal-content .input-group input::placeholder {
+    color: #64748b !important;
+}
+
 .modal-footer {
     display: flex;
     justify-content: flex-end;
