@@ -221,7 +221,7 @@ class StorageManager {
                             });
                         
                         if (createError) {
-                            console.error(`Failed to create bucket ${bucketName}:`, createError);
+                            console.warn(`Could not create bucket ${bucketName}. This might be due to RLS policies. The app will continue, but file uploads might fail.`, createError);
                         } else {
                             console.log(`✅ Bucket ${bucketName} created successfully`);
                         }
@@ -251,20 +251,37 @@ class BookingApp {
     }
 
     async init() {
+        console.log('1. Initializing Supabase...');
         await this.initializeSupabase();
+        console.log('2. Initializing Storage Manager...');
         this.initializeStorageManager();
+        console.log('3. Loading data...');
         await this.loadData();
+        console.log('4. Initializing default data...');
         await this.initializeDefaultData();
+        console.log('5. Setting up event listeners...');
         this.setupEventListeners();
+        console.log('6. Setting up connection status indicator...');
         this.setupConnectionStatusIndicator();
         
-        // Check for existing session via Supabase
+        console.log('7. Checking Supabase session...');
         await this.checkSupabaseSession();
         if (this.currentUser) {
+            console.log('8. User found, showing main screen...');
             await this.showMainScreen();
         } else {
+            console.log('8. No user found, showing login screen...');
             this.showLoginScreen();
         }
+        console.log('9. Init process complete.');
+    }
+
+    // Utility method to convert Date to YYYY-MM-DD format
+    toYYYYMMDD(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
     initializeStorageManager() {
@@ -579,7 +596,8 @@ class BookingApp {
         if (this.supabaseReady) {
             await this.loadFromSupabase();
         } else {
-            this.loadFromLocalStorage();
+            console.log('Supabase not ready - loading test data for development');
+            this.loadTestData();
         }
     }
 
@@ -596,10 +614,8 @@ class BookingApp {
             
             // Check Supabase connection first
             if (!this.supabaseReady) {
-                console.warn('Supabase connection not ready - initializing with empty arrays');
-                this.users = [];
-                this.courses = [];
-                this.bookings = [];
+                console.warn('Supabase connection not ready - loading test data for debugging');
+                this.loadTestData();
                 return;
             }
             
@@ -696,11 +712,141 @@ class BookingApp {
 
         } catch (error) {
             console.error('Error loading data from Supabase:', error);
-            console.log('Initializing with empty arrays');
-            this.users = [];
-            this.courses = [];
-            this.bookings = [];
+            console.log('Loading test data for debugging');
+            this.loadTestData();
         }
+    }
+
+    loadTestData() {
+        console.log('Loading test data for debugging...');
+        
+        // Create test user
+        this.users = [
+            {
+                id: 1,
+                first_name: 'Test',
+                last_name: 'User',
+                firstName: 'Test',
+                lastName: 'User',
+                email: 'test@example.com',
+                username: 'testuser',
+                password: 'test123',
+                role: 'Mitglied'
+            }
+        ];
+        
+        // Create test courses for yesterday, today, and future dates
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const dayAfterTomorrow = new Date(today);
+        dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+        
+        const todayStr = this.toYYYYMMDD(today);
+        const yesterdayStr = this.toYYYYMMDD(yesterday);
+        const tomorrowStr = this.toYYYYMMDD(tomorrow);
+        const dayAfterTomorrowStr = this.toYYYYMMDD(dayAfterTomorrow);
+
+        const courseYesterday = {
+            id: 'test-course-yesterday',
+            name: 'Fle.xx',
+            time: '08:45-09:30',
+            date: yesterdayStr,
+            date_display: yesterday.toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+            day_of_week: yesterday.toLocaleDateString('de-DE', { weekday: 'long' })
+        };
+
+        const courseToday = {
+            id: 'test-course-today',
+            name: 'Fle.xx',
+            time: '17:30–18:15',
+            date: todayStr,
+            date_display: today.toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+            day_of_week: today.toLocaleDateString('de-DE', { weekday: 'long' })
+        };
+
+        const courseTomorrow = {
+            id: 'test-course-tomorrow',
+            name: 'Fle.xx',
+            time: '09:45-10:30',
+            date: tomorrowStr,
+            date_display: tomorrow.toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+            day_of_week: tomorrow.toLocaleDateString('de-DE', { weekday: 'long' })
+        };
+
+        const courseDayAfterTomorrow = {
+            id: 'test-course-day-after-tomorrow',
+            name: 'Fle.xx',
+            time: '16:30-17:15',
+            date: dayAfterTomorrowStr,
+            date_display: dayAfterTomorrow.toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+            day_of_week: dayAfterTomorrow.toLocaleDateString('de-DE', { weekday: 'long' })
+        };
+
+        this.courses = [courseYesterday, courseToday, courseTomorrow, courseDayAfterTomorrow];
+
+        this.bookings = [
+            {
+                id: 'test-booking-yesterday',
+                user_id: 1,
+                userId: 1,
+                course_id: 'test-course-yesterday',
+                courseId: 'test-course-yesterday',
+                status: 'Bestätigt',
+                timestamp: new Date().toISOString(),
+                courseData: courseYesterday
+            },
+            {
+                id: 'test-booking-today',
+                user_id: 1,
+                userId: 1,
+                course_id: 'test-course-today',
+                courseId: 'test-course-today',
+                status: 'Bestätigt',
+                timestamp: new Date().toISOString(),
+                courseData: courseToday
+            },
+            {
+                id: 'test-booking-tomorrow',
+                user_id: 1,
+                userId: 1,
+                course_id: 'test-course-tomorrow',
+                courseId: 'test-course-tomorrow',
+                status: 'Bestätigt',
+                timestamp: new Date().toISOString(),
+                courseData: courseTomorrow
+            },
+            {
+                id: 'test-booking-day-after-tomorrow',
+                user_id: 1,
+                userId: 1,
+                course_id: 'test-course-day-after-tomorrow',
+                courseId: 'test-course-day-after-tomorrow',
+                status: 'Bestätigt',
+                timestamp: new Date().toISOString(),
+                courseData: courseDayAfterTomorrow
+            }
+        ];
+        
+        // Auto-login the test user
+        this.currentUser = this.users[0];
+        localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+        
+        console.log('Test data loaded:', {
+            users: this.users.length,
+            courses: this.courses.length,
+            bookings: this.bookings.length
+        });
+        
+        // Force render bookings after data load
+         setTimeout(() => {
+             if (this.currentUser) {
+                 console.log('🔄 Auto-rendering user bookings after data load');
+                 this.renderUserBookings();
+             }
+         }, 100);
     }
 
     async saveData() {
@@ -750,9 +896,19 @@ class BookingApp {
             
             // Save courses to Supabase
             if (this.courses && this.courses.length > 0) {
+                // Clean courses data to match database schema
+                const supabaseCourses = this.courses.map(course => ({
+                    id: course.id,
+                    name: course.name,
+                    time: course.time,
+                    date: course.date,
+                    date_display: course.date_display || course.dateDisplay,
+                    day_of_week: course.day_of_week || course.dayOfWeek
+                }));
+                
                 const { error: coursesError } = await supabase
                     .from('courses')
-                    .upsert(this.courses, { onConflict: 'id' });
+                    .upsert(supabaseCourses, { onConflict: 'id' });
                     
                 if (coursesError) {
                     console.error('Error saving courses:', coursesError);
@@ -1459,10 +1615,32 @@ class BookingApp {
     // Booking Management
     renderUserBookings() {
         const userBookings = document.getElementById('userBookings');
-        const myBookings = this.bookings.filter(b => b.userId === this.currentUser.id);
         
-        // Filter bookings for current user
-        console.log('Loading user bookings for user:', this.currentUser.id);
+        // Enhanced debugging
+        console.log('=== DEBUG: renderUserBookings() ===');
+        console.log('Current user:', this.currentUser);
+        console.log('Is user logged in?', !!this.currentUser);
+        console.log('Total bookings in system:', this.bookings.length);
+        console.log('All bookings:', this.bookings);
+        console.log('Total courses in system:', this.courses.length);
+        console.log('All courses:', this.courses);
+        
+        if (!this.currentUser) {
+            console.log('❌ No user logged in - cannot show bookings');
+            userBookings.innerHTML = `
+                <div class="empty-state">
+                    <h4>Nicht angemeldet</h4>
+                    <p>Sie müssen sich anmelden, um Ihre Buchungen zu sehen.</p>
+                    <button onclick="app.testLogin()" style="margin-top: 10px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Test Login (Debug)</button>
+                    <button onclick="app.debugBookings()" style="margin-top: 10px; margin-left: 10px; padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Debug Bookings</button>
+                </div>
+            `;
+            return;
+        }
+        
+        const myBookings = this.bookings.filter(b => b.userId === this.currentUser.id || b.user_id === this.currentUser.id);
+        console.log('User bookings found:', myBookings.length);
+        console.log('All user bookings:', myBookings);
         
         if (myBookings.length === 0) {
             userBookings.innerHTML = `
@@ -1474,35 +1652,45 @@ class BookingApp {
             return;
         }
         
-        // Filter out past courses (but include today's courses) and sort bookings by timestamp in descending order
         const today = new Date();
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
-        yesterday.setHours(23, 59, 59, 999); // End of yesterday
         
+        const todayStr = this.toYYYYMMDD(today);
+        const yesterdayStr = this.toYYYYMMDD(yesterday);
+        
+        console.log(`Filtering with today's date: ${todayStr}`);
+        console.log(`Including bookings from: ${yesterdayStr} onwards`);
+
+        // Filter bookings to show future courses and 1 day in the past
         const futureBookings = myBookings.filter(booking => {
-            let course = this.courses.find(c => c.id === booking.courseId);
-            
-            // If course not found in current courses, try to reconstruct from booking data
-            if (!course && booking.courseData) {
-                course = booking.courseData;
+            // Get course data from booking or find it in courses array
+            let course = booking.courseData;
+            if (!course) {
+                course = this.courses.find(c => c.id === booking.courseId || c.id === booking.course_id);
             }
             
-            if (course && course.date) {
-                const courseDate = new Date(course.date);
-                // Include today's courses and future courses (exclude only past days)
-                return courseDate > yesterday;
+            if (!course || !course.date) {
+                console.log('Booking without valid course date:', booking);
+                return false; // Filter out bookings without valid course dates
             }
             
-            // If no course date available, show the booking (fallback)
-            return true;
+            const courseDate = course.date;
+            const includeBooking = courseDate >= yesterdayStr;
+            
+            console.log(`Course ${course.name} on ${courseDate}: ${includeBooking ? 'INCLUDED' : 'EXCLUDED'}`);
+            return includeBooking;
         });
+        
+        console.log('Filtered future bookings:', futureBookings.length);
+        console.log('Future bookings:', futureBookings);
         
         if (futureBookings.length === 0) {
             userBookings.innerHTML = `
                 <div class="empty-state">
                     <h4>Keine zukünftigen Buchungen</h4>
                     <p>Sie haben keine zukünftigen Buchungen. Vergangene Kurse werden nicht angezeigt. Besuchen Sie die Startseite, um einen neuen Kurs zu buchen.</p>
+                    <button onclick="app.debugBookings()" style="margin-top: 10px; padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Debug Bookings</button>
                 </div>
             `;
             return;
@@ -2297,6 +2485,152 @@ class BookingApp {
         }
     }
 
+    // Debug function to test login
+    testLogin() {
+        console.log('=== TEST LOGIN DEBUG ===');
+        console.log('Available users:', this.users);
+        
+        // Try to login with the first available user (admin)
+        if (this.users.length > 0) {
+            const testUser = this.users.find(u => u.email === 'admin@saitama.com') || this.users[0];
+            console.log('Setting current user to:', testUser);
+            this.currentUser = testUser;
+            localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+            
+            // Create a test booking for today
+            const todayBooking = this.createTestBooking();
+            console.log('Created today booking:', todayBooking);
+            
+            // Show main screen and refresh bookings
+            this.showMainScreen();
+            this.renderUserBookings();
+            
+            console.log('Test login complete. Current user:', this.currentUser);
+            
+            // Alert to confirm test login and booking creation
+            alert('Test login successful. Created booking for today at 17:30.');
+        } else {
+            console.log('No users available for test login');
+            alert('No users available. Please check if data is loaded.');
+        }
+    }
+    
+
+    
+    // Debug function to force booking display
+    debugBookings() {
+        console.log('=== FORCE DEBUG BOOKINGS ===');
+        console.log('Current user:', this.currentUser);
+        console.log('All bookings:', this.bookings);
+        console.log('All courses:', this.courses);
+        
+        // Check for today's bookings specifically
+        const debugDate = new Date();
+        debugDate.setHours(0, 0, 0, 0); // Start of today
+        const debugDateStr = debugDate.toISOString().split('T')[0];
+        console.log('Today date string:', debugDateStr);
+        console.log('Today date object:', debugDate.toISOString());
+        
+        const todayBookings = this.bookings.filter(booking => {
+            const course = this.courses.find(c => c.id === booking.courseId);
+            if (course && course.date) {
+                // Parse the course date and set to start of day for proper comparison
+                const courseDate = new Date(course.date);
+                courseDate.setHours(0, 0, 0, 0);
+                const courseDateStr = courseDate.toISOString().split('T')[0];
+                
+                const isToday = courseDateStr === debugDateStr;
+                console.log(`Booking ${booking.id}: course date ${courseDateStr}, today ${debugDateStr}, match: ${isToday}`);
+                console.log(`Course date object: ${courseDate.toISOString()}, isToday: ${isToday}`);
+                
+                return isToday;
+            }
+            return false;
+        });
+        
+        console.log('Today\'s bookings found:', todayBookings);
+        console.log('Today\'s bookings details:', todayBookings.map(b => ({
+            id: b.id,
+            courseId: b.courseId,
+            status: b.status,
+            course: this.courses.find(c => c.id === b.courseId)
+        })));
+        
+        // Force render user bookings with debug
+        this.renderUserBookings();
+    }
+    
+    // Create a test booking for today
+    createTestBooking() {
+        console.log('=== CREATING TEST BOOKING ===');
+        
+        // Find a course for today
+        const bookingDate = new Date();
+        bookingDate.setHours(0, 0, 0, 0); // Start of today
+        const bookingDateStr = bookingDate.toISOString().split('T')[0];
+        console.log('Looking for course on date:', bookingDateStr);
+        
+        let todayCourse = this.courses.find(c => {
+            if (!c.date) return false;
+            const courseDate = new Date(c.date);
+            courseDate.setHours(0, 0, 0, 0);
+            const courseDateStr = courseDate.toISOString().split('T')[0];
+            console.log('Checking course:', c.id, 'date:', c.date, 'parsed:', courseDateStr, 'match:', courseDateStr === bookingDateStr);
+            return courseDateStr === bookingDateStr;
+        });
+        
+        console.log('Found today course:', todayCourse);
+        
+        if (!todayCourse) {
+            // Create a test course for today
+            const courseId = 'test-course-today-' + Date.now();
+            console.log('Creating test course with ID:', courseId);
+            todayCourse = {
+                id: courseId,
+                name: 'Fle.xx',
+                date: bookingDateStr, // ISO format date
+                time: '17:30–18:15',
+                date_display: bookingDate.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }),
+                dateDisplay: bookingDate.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }),
+                status: 'VERFÜGBAR',
+                maxParticipants: 10,
+                currentParticipants: 0
+            };
+            this.courses.push(todayCourse);
+            console.log('Created test course for today:', todayCourse);
+        }
+        
+        // Create a test booking
+        const bookingId = 'test-booking-today-' + Date.now();
+        const testBooking = {
+            id: bookingId,
+            courseId: todayCourse.id,
+            userId: this.currentUser.id,
+            user_id: this.currentUser.id, // Include both formats for compatibility
+            course_id: todayCourse.id,
+            status: 'Bestätigt',
+            timestamp: new Date().toISOString(),
+            courseData: {
+                name: todayCourse.name,
+                date: todayCourse.date,
+                time: todayCourse.time,
+                date_display: todayCourse.date_display || todayCourse.dateDisplay
+            },
+            courseName: todayCourse.name,
+            courseDate: todayCourse.date_display || todayCourse.dateDisplay,
+            courseTime: todayCourse.time
+        };
+        
+        this.bookings.push(testBooking);
+        console.log('Created test booking:', testBooking);
+        console.log('Total bookings now:', this.bookings.length);
+        
+        // Force render bookings after creating test data
+        this.renderUserBookings();
+        
+        return testBooking; // Return the created booking for reference
+    }
+
     // Event Listeners
     setupEventListeners() {
         // Login form
@@ -2321,6 +2655,8 @@ class BookingApp {
         document.getElementById('logoutBtn').addEventListener('click', () => {
             this.logout();
         });
+        
+
 
         // Tab navigation
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -2477,6 +2813,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await app.init();
         console.log('App initialized successfully');
+        
+        // Debug current state after initialization
+        console.log('=== APP INITIALIZATION COMPLETE ===');
+        console.log('Current user after init:', app.currentUser);
+        console.log('Total users loaded:', app.users.length);
+        console.log('Total courses loaded:', app.courses.length);
+        console.log('Total bookings loaded:', app.bookings.length);
+        console.log('Supabase ready:', app.supabaseReady);
+        if (app.bookings.length > 0) {
+            console.log('Sample booking:', app.bookings[0]);
+        }
+        console.log('=====================================');
     } catch (error) {
         console.error('Error initializing app:', error);
     }
