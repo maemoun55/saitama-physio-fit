@@ -1474,9 +1474,11 @@ class BookingApp {
             return;
         }
         
-        // Filter out past courses and sort bookings by timestamp in descending order (chronological order - most recent first)
+        // Filter out past courses (but include today's courses) and sort bookings by timestamp in descending order
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        yesterday.setHours(23, 59, 59, 999); // End of yesterday
         
         const futureBookings = myBookings.filter(booking => {
             let course = this.courses.find(c => c.id === booking.courseId);
@@ -1488,8 +1490,8 @@ class BookingApp {
             
             if (course && course.date) {
                 const courseDate = new Date(course.date);
-                courseDate.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
-                return courseDate >= today; // Only show present and future courses
+                // Include today's courses and future courses (exclude only past days)
+                return courseDate > yesterday;
             }
             
             // If no course date available, show the booking (fallback)
