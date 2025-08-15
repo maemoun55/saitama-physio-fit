@@ -284,6 +284,31 @@ class BookingApp {
         return `${year}-${month}-${day}`;
     }
 
+    // Helper function to check if a course date is within admin date range (past 3 days + future)
+    isWithinAdminDateRange(courseDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to start of day
+        
+        const threeDaysAgo = new Date(today);
+        threeDaysAgo.setDate(today.getDate() - 3);
+        
+        const courseDateTime = new Date(courseDate);
+        courseDateTime.setHours(0, 0, 0, 0); // Reset time to start of day
+        
+        // Include courses from 3 days ago and all future courses
+        return courseDateTime >= threeDaysAgo;
+    }
+
+    // Helper function to get Supabase date range filter (3 days past + future)
+    getSupabaseDateRangeFilter() {
+        const today = new Date();
+        const threeDaysAgo = new Date(today);
+        threeDaysAgo.setDate(today.getDate() - 3);
+        
+        // Return the date in YYYY-MM-DD format for Supabase filtering
+        return this.toYYYYMMDD(threeDaysAgo);
+    }
+
     initializeStorageManager() {
         if (supabase) {
             this.storageManager = new StorageManager(supabase);
@@ -644,9 +669,12 @@ class BookingApp {
 
             // Load courses with error handling
             try {
+                // Apply date filtering: courses from 3 days ago and future
+                const dateFilter = this.getSupabaseDateRangeFilter();
                 const { data: courses, error: coursesError } = await supabase
                     .from('courses')
-                    .select('*');
+                    .select('*')
+                    .gte('date', dateFilter);
                     
                 if (coursesError) {
                     console.error('Error loading courses:', coursesError);
@@ -654,7 +682,7 @@ class BookingApp {
                 }
                 
                 this.courses = courses || [];
-                console.log(`Successfully loaded ${this.courses.length} courses from Supabase`);
+                console.log(`Successfully loaded ${this.courses.length} courses from Supabase (filtered from ${dateFilter})`);
             } catch (courseError) {
                 console.error('Failed to load courses, will try to continue with other data:', courseError);
                 this.courses = [];
@@ -1774,10 +1802,20 @@ class BookingApp {
         
         allBookings.innerHTML = '';
         
-        // Sort bookings by timestamp in descending order (latest first)
-        const sortedBookings = [...this.bookings].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        // Filter bookings by admin date range (past 3 days + future)
+        const filteredBookings = this.bookings.filter(booking => {
+            const course = this.courses.find(c => c.id === booking.courseId);
+            if (!course) return false; // Skip if course not found
+            
+            // Use course date for filtering
+            const courseDate = course.date || course.date_display;
+            return this.isWithinAdminDateRange(courseDate);
+        });
         
-        // Render all bookings
+        // Sort filtered bookings by timestamp in descending order (latest first)
+        const sortedBookings = [...filteredBookings].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        // Render filtered bookings
         sortedBookings.forEach(booking => {
             const course = this.courses.find(c => c.id === booking.courseId);
             const user = this.users.find(u => u.id === booking.userId);
@@ -1850,7 +1888,18 @@ class BookingApp {
 
     renderPendingBookings() {
         const pendingBookingsContainer = document.getElementById('pendingBookings');
-        const pendingBookingsList = this.bookings.filter(b => b.status === 'Ausstehend');
+        
+        // Filter by status and admin date range (past 3 days + future)
+        const pendingBookingsList = this.bookings.filter(booking => {
+            if (booking.status !== 'Ausstehend') return false;
+            
+            const course = this.courses.find(c => c.id === booking.courseId);
+            if (!course) return false; // Skip if course not found
+            
+            // Use course date for filtering
+            const courseDate = course.date || course.date_display;
+            return this.isWithinAdminDateRange(courseDate);
+        });
         
         if (pendingBookingsList.length === 0) {
             pendingBookingsContainer.innerHTML = '<p class="empty-state">Keine ausstehenden Buchungen gefunden.</p>';
@@ -1922,7 +1971,18 @@ class BookingApp {
 
     renderCancelledBookings() {
         const cancelledBookingsContainer = document.getElementById('cancelledBookings');
-        const cancelledBookingsList = this.bookings.filter(b => b.status === 'Storniert');
+        
+        // Filter by status and admin date range (past 3 days + future)
+        const cancelledBookingsList = this.bookings.filter(booking => {
+            if (booking.status !== 'Storniert') return false;
+            
+            const course = this.courses.find(c => c.id === booking.courseId);
+            if (!course) return false; // Skip if course not found
+            
+            // Use course date for filtering
+            const courseDate = course.date || course.date_display;
+            return this.isWithinAdminDateRange(courseDate);
+        });
         
         if (cancelledBookingsList.length === 0) {
             cancelledBookingsContainer.innerHTML = '<p class="empty-state">Keine stornierten Buchungen gefunden.</p>';
@@ -2004,7 +2064,18 @@ class BookingApp {
 
     renderWaitingListBookings() {
         const waitingListContainer = document.getElementById('waitingListBookings');
-        const waitingListBookings = this.bookings.filter(b => b.status === 'Warteliste');
+        
+        // Filter by status and admin date range (past 3 days + future)
+        const waitingListBookings = this.bookings.filter(booking => {
+            if (booking.status !== 'Warteliste') return false;
+            
+            const course = this.courses.find(c => c.id === booking.courseId);
+            if (!course) return false; // Skip if course not found
+            
+            // Use course date for filtering
+            const courseDate = course.date || course.date_display;
+            return this.isWithinAdminDateRange(courseDate);
+        });
         
         if (waitingListBookings.length === 0) {
             waitingListContainer.innerHTML = '<p class="empty-state">Keine Buchungen auf der Warteliste.</p>';
@@ -2085,7 +2156,18 @@ class BookingApp {
 
     renderRejectedBookings() {
         const rejectedContainer = document.getElementById('rejectedBookings');
-        const rejectedBookings = this.bookings.filter(b => b.status === 'Abgelehnt');
+        
+        // Filter by status and admin date range (past 3 days + future)
+        const rejectedBookings = this.bookings.filter(booking => {
+            if (booking.status !== 'Abgelehnt') return false;
+            
+            const course = this.courses.find(c => c.id === booking.courseId);
+            if (!course) return false; // Skip if course not found
+            
+            // Use course date for filtering
+            const courseDate = course.date || course.date_display;
+            return this.isWithinAdminDateRange(courseDate);
+        });
         
         if (rejectedBookings.length === 0) {
             rejectedContainer.innerHTML = '<p class="empty-state">Keine abgelehnten Anfragen gefunden.</p>';

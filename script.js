@@ -776,10 +776,15 @@ class BookingApp {
                 })(),
                 (async () => {
                     try {
-                        const { data: courses, error } = await this.supabaseAdmin.from('courses').select('*');
+                        // Apply date filtering: courses from 3 days ago and future
+                        const dateFilter = this.getSupabaseDateRangeFilter();
+                        const { data: courses, error } = await this.supabaseAdmin
+                            .from('courses')
+                            .select('*')
+                            .gte('date', dateFilter);
                         if (error) throw error;
                         this.courses = courses || [];
-                        console.log(`Successfully loaded ${this.courses.length} courses from Supabase`);
+                        console.log(`Successfully loaded ${this.courses.length} courses from Supabase (filtered from ${dateFilter})`);
                     } catch (error) {
                         console.error('Failed to load courses from Supabase:', error);
                         this.courses = [];
@@ -839,6 +844,24 @@ class BookingApp {
             console.error('Error loading data from Supabase:', error);
             throw new Error('Failed to load data from database: ' + error.message);
         }
+    }
+
+    // Utility method to convert Date to YYYY-MM-DD format
+    toYYYYMMDD(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // Helper function to get Supabase date range filter (3 days past + future)
+    getSupabaseDateRangeFilter() {
+        const today = new Date();
+        const threeDaysAgo = new Date(today);
+        threeDaysAgo.setDate(today.getDate() - 3);
+        
+        // Return the date in YYYY-MM-DD format for Supabase filtering
+        return this.toYYYYMMDD(threeDaysAgo);
     }
 
     async saveData() {
