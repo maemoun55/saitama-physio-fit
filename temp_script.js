@@ -1,12 +1,31 @@
 // Saitama Physio Fit Booking System
 // Data Management and Application Logic with Supabase Integration
 
-// Supabase Configuration
-const SUPABASE_URL = 'https://rbfephzobczjludtfnej.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJiZmVwaHpvYmN6amx1ZHRmbmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2OTg2NDUsImV4cCI6MjA2OTI3NDY0NX0.09_Z5kAr47z-MxXJg00mYVDNyRua47qns9jZntwMx8M';
+// Supabase Configuration - Keys loaded from environment variables for security
+// Wait for CONFIG to be available, then load configuration
+let SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_STORAGE_URL;
 
-// Supabase Storage Configuration
-const SUPABASE_STORAGE_URL = 'https://rbfephzobczjludtfnej.supabase.co/storage/v1/s3';
+// Function to initialize configuration
+function initializeConfig() {
+    if (typeof window !== 'undefined' && window.CONFIG) {
+        SUPABASE_URL = window.CONFIG.SUPABASE_URL;
+        SUPABASE_ANON_KEY = window.CONFIG.SUPABASE_ANON_KEY;
+        SUPABASE_STORAGE_URL = window.CONFIG.SUPABASE_STORAGE_URL;
+    } else {
+        // Fallback values if CONFIG is not available
+        SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        SUPABASE_STORAGE_URL = 'YOUR_SUPABASE_STORAGE_URL';
+    }
+}
+
+// Initialize configuration immediately
+initializeConfig();
+
+// Also listen for env-loaded event in case it loads later
+if (typeof window !== 'undefined') {
+    window.addEventListener('env-loaded', initializeConfig);
+}
 const SUPABASE_REGION = 'eu-central-1';
 const STORAGE_BUCKETS = {
     PROFILES: 'user-profiles',
