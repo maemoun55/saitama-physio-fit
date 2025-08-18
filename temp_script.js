@@ -1726,7 +1726,20 @@ class BookingApp {
         
         userBookings.innerHTML = '';
         
-        const sortedMyBookings = [...futureBookings].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        // Sort by course date chronologically (nearest upcoming appointment first)
+        const sortedMyBookings = [...futureBookings].sort((a, b) => {
+            // Get course data for both bookings
+            let courseA = a.courseData || this.courses.find(c => c.id === a.courseId || c.id === a.course_id);
+            let courseB = b.courseData || this.courses.find(c => c.id === b.courseId || c.id === b.course_id);
+            
+            // If either course is missing, sort by timestamp as fallback
+            if (!courseA || !courseB || !courseA.date || !courseB.date) {
+                return new Date(a.timestamp) - new Date(b.timestamp);
+            }
+            
+            // Sort by course date (earliest first for chronological order)
+            return courseA.date.localeCompare(courseB.date);
+        });
         
         sortedMyBookings.forEach(booking => {
             let course = this.courses.find(c => c.id === booking.courseId);
