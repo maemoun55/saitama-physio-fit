@@ -33,46 +33,67 @@ const STORAGE_BUCKETS = {
     DOCUMENTS: 'documents'
 };
 
-// Initialize Supabase client only if credentials are provided
+// Initialize Supabase client - will be set up after configuration is loaded
 let supabase;
-console.log('Checking Supabase initialization...');
-console.log('window.supabase available:', typeof window !== 'undefined' && !!window.supabase);
-console.log('SUPABASE_URL:', SUPABASE_URL);
-console.log('SUPABASE_ANON_KEY length:', SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.length : 'undefined');
 
-if (typeof window !== 'undefined' && window.supabase && 
-    SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
-    try {
-        // Create the Supabase client with additional options
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-            auth: {
-                autoRefreshToken: true,
-                persistSession: true
-            },
-            global: {
-                headers: {
-                    'apikey': SUPABASE_ANON_KEY
+// Function to initialize Supabase with proper configuration
+function initializeSupabaseClient() {
+    console.log('Checking Supabase initialization...');
+    console.log('window.supabase available:', typeof window !== 'undefined' && !!window.supabase);
+    console.log('SUPABASE_URL:', SUPABASE_URL);
+    console.log('SUPABASE_ANON_KEY length:', SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.length : 'undefined');
+
+    if (typeof window !== 'undefined' && window.supabase && 
+        SUPABASE_URL && SUPABASE_URL !== 'YOUR_SUPABASE_URL' && 
+        SUPABASE_ANON_KEY && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
+        try {
+            // Create the Supabase client with additional options
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                auth: {
+                    autoRefreshToken: true,
+                    persistSession: true
                 },
-                fetch: {
-                    timeout: 15000 // 15 seconds timeout
+                global: {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    fetch: {
+                        timeout: 15000 // 15 seconds timeout
+                    }
                 }
-            }
-        });
-        console.log('Supabase client initialized successfully:', !!supabase);
-        
-        // Test connection immediately
-        supabase.from('users').select('count', { count: 'exact', head: true })
-            .then(result => {
-                console.log('Supabase connection test result:', result);
-            })
-            .catch(error => {
-                console.error('Supabase connection test failed:', error);
             });
-    } catch (error) {
-        console.error('Error initializing Supabase client:', error);
+            console.log('Supabase client initialized successfully:', !!supabase);
+            
+            // Test connection immediately
+            supabase.from('users').select('count', { count: 'exact', head: true })
+                .then(result => {
+                    console.log('Supabase connection test result:', result);
+                })
+                .catch(error => {
+                    console.error('Supabase connection test failed:', error);
+                });
+            return true;
+        } catch (error) {
+            console.error('Error initializing Supabase client:', error);
+            return false;
+        }
+    } else {
+        console.error('Supabase initialization failed - missing dependencies or credentials');
+        return false;
     }
-} else {
-    console.error('Supabase initialization failed - missing dependencies or credentials');
+}
+
+// Try to initialize immediately
+initializeSupabaseClient();
+
+// Also try to initialize when env is loaded
+if (typeof window !== 'undefined') {
+    window.addEventListener('env-loaded', () => {
+        if (!supabase) {
+            initializeConfig(); // Refresh config
+            initializeSupabaseClient();
+        }
+    });
 }
 
 // Storage Management Class
