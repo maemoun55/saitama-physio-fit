@@ -1143,30 +1143,30 @@ class BookingApp {
         const today = new Date();
         const weeklySchedule = {
             1: [ // Monday
-                { time: '08:45–09:30', name: 'Fle.xx' },
-                { time: '09:45–10:30', name: 'Fle.xx' },
-                { time: '16:30–17:15', name: 'Fle.xx' },
-                { time: '17:30–18:15', name: 'Fle.xx' }
+                { time: '08:45–09:30', name: 'Fle.xx', trainer: 'Anna Schmidt', maxParticipants: 12 },
+                { time: '09:45–10:30', name: 'Fle.xx', trainer: 'Anna Schmidt', maxParticipants: 12 },
+                { time: '16:30–17:15', name: 'Fle.xx', trainer: 'Mike Johnson', maxParticipants: 10 },
+                { time: '17:30–18:15', name: 'Fle.xx', trainer: 'Mike Johnson', maxParticipants: 10 }
             ],
             2: [ // Tuesday
-                { time: '09:30–10:15', name: 'Fle.xx' },
-                { time: '17:00–17:45', name: 'Fle.xx' },
-                { time: '18:00–18:45', name: 'TRX' },
-                { time: '19:00–19:45', name: 'TRX' }
+                { time: '09:30–10:15', name: 'Fle.xx', trainer: 'Sarah Weber', maxParticipants: 12 },
+                { time: '17:00–17:45', name: 'Fle.xx', trainer: 'Tom Mueller', maxParticipants: 12 },
+                { time: '18:00–18:45', name: 'TRX', trainer: 'Tom Mueller', maxParticipants: 8 },
+                { time: '19:00–19:45', name: 'TRX', trainer: 'Tom Mueller', maxParticipants: 8 }
             ],
             3: [ // Wednesday
-                { time: '08:45–09:00', name: 'Fle.xx' },
-                { time: '09:45–10:30', name: 'Fle.xx' },
-                { time: '17:15–18:00', name: 'Fle.xx' },
-                { time: '18:15–19:00', name: 'Fle.xx' }
+                { time: '08:45–09:00', name: 'Fle.xx', trainer: 'Anna Schmidt', maxParticipants: 12 },
+                { time: '09:45–10:30', name: 'Fle.xx', trainer: 'Anna Schmidt', maxParticipants: 12 },
+                { time: '17:15–18:00', name: 'Fle.xx', trainer: 'Lisa Hoffmann', maxParticipants: 10 },
+                { time: '18:15–19:00', name: 'Fle.xx', trainer: 'Lisa Hoffmann', maxParticipants: 10 }
             ],
             4: [ // Thursday
-                { time: '18:15–19:00', name: 'Bauch, Beine, Po' },
-                { time: '19:00–20:00', name: 'Vinyasa Power Yoga' }
+                { time: '18:15–19:00', name: 'Bauch, Beine, Po', trainer: 'Sarah Weber', maxParticipants: 15 },
+                { time: '19:00–20:00', name: 'Vinyasa Power Yoga', trainer: 'Lisa Hoffmann', maxParticipants: 12 }
             ],
             5: [ // Friday
-                { time: '08:45–09:30', name: 'Fle.xx' },
-                { time: '09:45–10:30', name: 'Fle.xx' }
+                { time: '08:45–09:30', name: 'Fle.xx', trainer: 'Mike Johnson', maxParticipants: 12 },
+                { time: '09:45–10:30', name: 'Fle.xx', trainer: 'Mike Johnson', maxParticipants: 12 }
             ]
         };
         
@@ -1210,6 +1210,9 @@ class BookingApp {
                             day: 'numeric' 
                         }),
                         day_of_week: currentDate.toLocaleDateString('de-DE', { weekday: 'long' }),
+                        trainer: session.trainer || 'Saitama Team',
+                        maxParticipants: session.maxParticipants || 12,
+                        description: session.description || '',
                         // Keep old format for compatibility
                         dateDisplay: currentDate.toLocaleDateString('de-DE', { 
                             weekday: 'long', 
@@ -1461,6 +1464,11 @@ class BookingApp {
         // Show selected tab
         document.getElementById(tabName + 'Tab').classList.add('active');
         document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        
+        // Initialize calendar if calendar tab is shown
+        if (tabName === 'calendar') {
+            this.initializeCalendar();
+        }
     }
 
     showAdminTab(tabName) {
@@ -1561,11 +1569,11 @@ class BookingApp {
                         <strong>Zeit:</strong> ${course.time}
                     </div>
                     <div class="course-status ${statusClass}">
-                        ${userBooking ? `Gebucht (${userBooking.status})` : 'Verfügbar'}
+                        ${userBooking ? userBooking.status : 'Verfügbar'}
                     </div>
                     <button class="btn-primary" onclick="app.handleBookCourse('${course.id}')"
                                 ${userBooking ? 'disabled' : ''}>
-                            ${userBooking ? 'Bereits gebucht' : 'Jetzt buchen'}
+                            ${userBooking ? userBooking.status : 'Jetzt buchen'}
                         </button>
                 `;
                 dayCoursesGrid.appendChild(courseCard);
@@ -1576,6 +1584,16 @@ class BookingApp {
     }
 
     async bookCourse(courseId) {
+        // NEW: Check if user is properly logged in
+        if (!this.currentUser || !this.currentUser.id) {
+            alert('Sie müssen angemeldet sein, um einen Kurs zu buchen.');
+            return;
+        }
+        // NEW: Check if database connection is available
+        if (!this.supabaseReady) {
+            alert('Keine Verbindung zur Datenbank. Bitte versuchen Sie es später erneut.');
+            return;
+        }
         const course = this.courses.find(c => c.id === courseId);
         const existingBooking = this.bookings.find(b => 
             b.userId === this.currentUser.id && 
@@ -1671,6 +1689,7 @@ class BookingApp {
             // Re-render relevant parts of the UI
             this.renderCourses();
             this.renderUserBookings();
+            this.displayCoursesForSelectedDate(); // Refresh calendar view
 
             // Booking successful - no popup needed for smoother UX
 
@@ -2850,6 +2869,218 @@ class BookingApp {
                 }
             });
         });
+
+        // Calendar navigation
+        document.getElementById('prevMonth').addEventListener('click', () => {
+            this.navigateMonth(-1);
+        });
+
+        document.getElementById('nextMonth').addEventListener('click', () => {
+            this.navigateMonth(1);
+        });
+    }
+
+    // Calendar functionality
+    initializeCalendar() {
+        console.log('🗓️ Initializing calendar...');
+        
+        this.currentCalendarDate = new Date();
+        this.selectedDate = null;
+        this.renderCalendar();
+    }
+
+    navigateMonth(direction) {
+        // For 4-week view, navigate by weeks instead of months
+        this.currentCalendarDate.setDate(this.currentCalendarDate.getDate() + (direction * 7));
+        this.renderCalendar();
+    }
+
+    renderCalendar() {
+        console.log('🗓️ Rendering 4-week calendar...');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time for proper comparison
+        
+        // Update header to show "Next 4 Weeks" instead of month/year
+        document.getElementById('currentMonth').textContent = 'Nächste 4 Wochen';
+        
+        // Clear calendar
+        const calendarDays = document.getElementById('calendarDays');
+        if (!calendarDays) {
+            console.error('❌ calendarDays element not found!');
+            return;
+        }
+        console.log('✅ Found calendarDays element, clearing content...');
+        calendarDays.innerHTML = '';
+        
+        // Generate next 4 weeks (28 days) starting from today
+        console.log('📅 Creating 4-week calendar view...');
+        for (let dayOffset = 0; dayOffset < 28; dayOffset++) {
+            const currentDate = new Date(today);
+            currentDate.setDate(today.getDate() + dayOffset);
+            
+            const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            
+            // Skip weekends (Saturday = 6, Sunday = 0) to match course schedule
+            if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+            
+            // Skip German holidays
+            if (this.isGermanHoliday(currentDate)) continue;
+            
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day';
+            
+            // Display day and date info
+            const dayName = currentDate.toLocaleDateString('de-DE', { weekday: 'short' });
+            const dayNumber = currentDate.getDate();
+            const monthName = currentDate.toLocaleDateString('de-DE', { month: 'short' });
+            
+            dayElement.innerHTML = `
+                <div class="day-name">${dayName}</div>
+                <div class="day-number">${dayNumber}</div>
+                <div class="month-name">${monthName}</div>
+            `;
+            
+            // Mark past dates (though we start from today, so this is for safety)
+            if (currentDate < today) {
+                dayElement.classList.add('past');
+            }
+            
+            // Check if there are courses on this date
+            const coursesOnDate = this.getCoursesForDate(currentDate);
+            if (coursesOnDate.length > 0) {
+                dayElement.classList.add('has-courses');
+                // Add course count indicator
+                const courseCount = document.createElement('div');
+                courseCount.className = 'course-count';
+                courseCount.textContent = `${coursesOnDate.length} Kurs${coursesOnDate.length > 1 ? 'e' : ''}`;
+                dayElement.appendChild(courseCount);
+            }
+            
+            // Mark selected date
+            if (this.selectedDate && 
+                this.selectedDate.getDate() === currentDate.getDate() && 
+                this.selectedDate.getMonth() === currentDate.getMonth() && 
+                this.selectedDate.getFullYear() === currentDate.getFullYear()) {
+                dayElement.classList.add('selected');
+            }
+            
+            // Add click handler
+            dayElement.addEventListener('click', (event) => {
+                console.log('🖱️ Calendar day clicked!', {
+                    date: currentDate,
+                    isPast: dayElement.classList.contains('past'),
+                    coursesCount: coursesOnDate.length
+                });
+                
+                if (!dayElement.classList.contains('past')) {
+                    console.log('✅ Day is not past, calling selectDate...');
+                    this.selectDate(new Date(currentDate));
+                } else {
+                    console.log('❌ Day is in the past, ignoring click');
+                }
+            });
+            
+            calendarDays.appendChild(dayElement);
+        }
+        
+        console.log(`✅ 4-week calendar rendering complete. Total days: ${calendarDays.children.length}`);
+    }
+
+    selectDate(date) {
+        console.log('📅 selectDate function called with:', date);
+        console.log('📅 Date type:', typeof date, 'Date object:', date instanceof Date);
+        
+        this.selectedDate = new Date(date);
+        console.log('📅 Selected date set to:', this.selectedDate);
+        console.log('📅 Selected date string:', this.selectedDate.toISOString());
+        
+        console.log('📅 About to re-render calendar...');
+        this.renderCalendar();
+        console.log('📅 Calendar re-rendered, now displaying courses...');
+        
+        this.displayCoursesForSelectedDate();
+        console.log('📅 ✅ selectDate function completed successfully');
+    }
+
+    getCoursesForDate(date) {
+        const dateString = date.toISOString().split('T')[0];
+        return this.courses.filter(course => {
+            const courseDate = new Date(course.date).toISOString().split('T')[0];
+            return courseDate === dateString;
+        });
+    }
+
+    getBookingCount(courseId) {
+        // Count confirmed/active bookings for a specific course
+        // Exclude cancelled bookings
+        const activeBookings = this.bookings.filter(booking => {
+            const matchesCourse = booking.courseId === courseId || booking.course_id === courseId;
+            const isActive = booking.status !== 'Storniert' && booking.status !== 'Cancelled';
+            return matchesCourse && isActive;
+        });
+        
+        console.log(`📊 Booking count for course ${courseId}:`, activeBookings.length);
+        return activeBookings.length;
+    }
+
+    displayCoursesForSelectedDate() {
+        console.log('🎯 Displaying courses for selected date:', this.selectedDate);
+        const coursesContainer = document.getElementById('selectedDateCourses');
+        
+        if (!this.selectedDate) {
+            coursesContainer.innerHTML = '<p>Bitte wählen Sie ein Datum aus dem Kalender.</p>';
+            return;
+        }
+        
+        const courses = this.getCoursesForDate(this.selectedDate);
+        console.log('🎯 Found courses for date:', courses.length, courses);
+        
+        if (courses.length === 0) {
+            const dateStr = this.selectedDate.toLocaleDateString('de-DE');
+            coursesContainer.innerHTML = `<p>Keine Kurse verfügbar für ${dateStr}.</p>`;
+            return;
+        }
+        
+        // Use the same rendering logic as the main courses tab
+        let html = '<div class="courses-grid">';
+        
+        courses.forEach(course => {
+            const userBooking = this.bookings.find(booking => 
+                booking.courseId === course.id && 
+                booking.userId === this.currentUser?.id && 
+                booking.status !== 'Storniert'
+            );
+            
+            // Ensure maxParticipants is a valid number to prevent NaN
+            const maxParticipants = Number(course.maxParticipants) || 12;
+            const bookingCount = this.getBookingCount(course.id);
+            const availableSpots = maxParticipants - bookingCount;
+            const isWaitingList = availableSpots <= 0;
+            
+            html += `
+                <div class="course-card">
+                    <div class="course-header">
+                        <h3>${course.name}</h3>
+                        <span class="course-time">${course.time}</span>
+                    </div>
+                    <div class="course-details">
+                        ${course.description ? `<p class="course-description">${course.description}</p>` : ''}
+                    </div>
+                    <div class="course-actions">
+                        ${userBooking ? 
+                            `<span class="booking-status booked ${userBooking.status === 'Abgelehnt' ? 'status-abgelehnt' : userBooking.status === 'Warteliste' ? 'status-warteliste' : userBooking.status === 'Ausstehend' ? 'status-ausstehend' : ''}">${userBooking.status}</span>` :
+                            `<button class="book-btn ${isWaitingList ? 'waiting-list' : ''}" 
+                                onclick="app.handleBookCourse('${course.id}')">
+                                ${isWaitingList ? 'Warteliste beitreten' : 'Buchen'}
+                            </button>`
+                        }
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        coursesContainer.innerHTML = html;
     }
 
     async markCancellationProcessed(bookingId) {

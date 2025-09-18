@@ -93,6 +93,19 @@ body::before {
     outline: none;
 }
 
+/* Calendar H4 Styling */
+#currentMonth {
+    color: var(--primary-blue);
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+#selectedDateTitle {
+    color: var(--secondary-blue);
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
 /* Notification System */
 .notification-container {
     position: fixed;
@@ -612,6 +625,69 @@ body::before {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
+/* Book Button Styles */
+.book-btn {
+    background: linear-gradient(135deg, var(--accent-green) 0%, #059669 100%);
+    color: #ffffff;
+    border: 1px solid var(--accent-green);
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    letter-spacing: -0.025em;
+    min-height: 44px;
+    box-shadow: 0 4px 16px rgba(46, 204, 113, 0.25);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.book-btn:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(46, 204, 113, 0.4);
+    border-color: #059669;
+}
+
+.book-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 16px rgba(46, 204, 113, 0.25);
+}
+
+.book-btn.waiting-list {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border-color: #f59e0b;
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
+}
+
+.book-btn.waiting-list:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+    border-color: #d97706;
+}
+
+.book-btn:disabled {
+    background: #cbd5e1;
+    border-color: #cbd5e1;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    opacity: 0.6;
+    text-shadow: none;
+}
+
+.book-btn:disabled:hover {
+    background: #cbd5e1;
+    transform: none;
+    box-shadow: none;
+}
+
 /* Error Messages */
 .error-message {
     color: var(--error-red);
@@ -955,9 +1031,10 @@ body::before {
 
 .course-time {
     color: #64748b;
-    font-size: 0.875rem;
+    font-size: 1rem;
     margin-bottom: 1rem;
     line-height: 1.5;
+    font-weight: 500;
 }
 
 .course-schedule {
@@ -1145,6 +1222,43 @@ body::before {
     border-color: #6b7280;
     background: rgba(107, 114, 128, 0.1);
     text-decoration: line-through;
+}
+
+/* Booked status styling for calendar view */
+.booking-status.booked {
+    color: #065f46 !important;
+    background: #d1fae5;
+    border-color: #34d399;
+    font-weight: 700;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    text-align: center;
+    min-width: 100px;
+    letter-spacing: -0.025em;
+    border: 1px solid;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Override for rejected status in calendar view */
+.booking-status.booked.status-abgelehnt {
+    color: #dc2626 !important;
+    background: #fee2e2 !important;
+    border-color: #f87171 !important;
+}
+
+/* Override for waiting list status in calendar view */
+.booking-status.booked.status-warteliste {
+    color: #1e40af !important;
+    background: #dbeafe !important;
+    border-color: #60a5fa !important;
+}
+
+/* Override for pending status in calendar view */
+.booking-status.booked.status-ausstehend {
+    color: #d97706 !important;
+    background: #fef3c7 !important;
+    border-color: #fbbf24 !important;
 }
 
 /* Admin Panel */
@@ -1828,7 +1942,7 @@ body::before {
     
     .course-card p,
     .course-time {
-        font-size: 0.8rem;
+        font-size: 0.9rem;
     }
     
     .login-container {
@@ -1994,4 +2108,264 @@ body::before {
     opacity: 0.9;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(220, 38, 38, 0.15);
+}
+
+/* Calendar Styles */
+.calendar-container {
+    background: var(--glass-main);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border-main);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.calendar-header h4 {
+    color: var(--text-white);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.calendar-nav-btn {
+    background: var(--primary-blue);
+    color: var(--text-white);
+    border: none;
+    border-radius: 8px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 149, 195, 0.3);
+}
+
+.calendar-nav-btn:hover {
+    background: var(--secondary-blue);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 174, 239, 0.4);
+}
+
+.calendar-grid {
+    width: 100%;
+}
+
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.weekday {
+    text-align: center;
+    font-weight: 600;
+    color: var(--secondary-blue);
+    padding: 8px;
+    font-size: 0.875rem;
+}
+
+.calendar-days {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.calendar-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #1e293b;
+    position: relative;
+    padding: 12px 8px;
+    min-height: 80px;
+}
+
+.calendar-day .day-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--secondary-blue);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.calendar-day .day-number {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.calendar-day .month-name {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    font-weight: 500;
+}
+
+.calendar-day:hover {
+    background: rgba(0, 174, 239, 0.8);
+    border-color: var(--secondary-blue);
+    color: var(--text-white);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 174, 239, 0.3);
+}
+
+.calendar-day:hover .day-name,
+.calendar-day:hover .month-name {
+    color: var(--text-white);
+}
+
+.calendar-day.selected {
+    background: var(--primary-blue);
+    color: var(--text-white);
+    border-color: var(--secondary-blue);
+    box-shadow: 0 4px 12px rgba(0, 149, 195, 0.4);
+}
+
+.calendar-day.selected .day-name,
+.calendar-day.selected .month-name {
+    color: var(--text-white);
+}
+
+.calendar-day.other-month {
+    color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.calendar-day.past {
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.3);
+    cursor: not-allowed;
+}
+
+.calendar-day.past .day-name,
+.calendar-day.past .month-name {
+    color: #94a3b8;
+}
+
+.calendar-day.past:hover {
+    transform: none;
+    background: rgba(255, 255, 255, 0.3);
+    color: #94a3b8;
+    box-shadow: none;
+}
+
+.calendar-day.past:hover .day-name,
+.calendar-day.past:hover .month-name {
+    color: #94a3b8;
+}
+
+.calendar-day.has-courses::after {
+    content: '';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    background: var(--success-green);
+    border-radius: 50%;
+    box-shadow: 0 0 4px rgba(153, 179, 69, 0.6);
+}
+
+.calendar-day .course-count {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: var(--success-green);
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 2px 4px;
+    border-radius: 8px;
+    min-width: 16px;
+    text-align: center;
+    line-height: 1;
+}
+
+.selected-date-courses {
+    background: var(--glass-main);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border-main);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.selected-date-courses h4 {
+    color: var(--text-white);
+    margin-bottom: 1rem;
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+/* Mobile Calendar Styles */
+@media (max-width: 768px) {
+    .calendar-container {
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .calendar-header h4 {
+        font-size: 1.125rem;
+    }
+    
+    .calendar-nav-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+    
+    .calendar-days {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    .calendar-day {
+        min-height: 70px;
+        padding: 8px 6px;
+    }
+    
+    .calendar-day .day-name {
+        font-size: 0.65rem;
+    }
+    
+    .calendar-day .day-number {
+        font-size: 1.1rem;
+    }
+    
+    .calendar-day .month-name {
+        font-size: 0.6rem;
+    }
+    
+    .calendar-day .course-count {
+        font-size: 0.55rem;
+        padding: 1px 3px;
+        min-width: 14px;
+    }
+    
+    .selected-date-courses {
+        padding: 1rem;
+    }
+    
+    .selected-date-courses h4 {
+        font-size: 1rem;
+    }
 }

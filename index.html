@@ -47,6 +47,7 @@
         <div class="tab-navigation">
             <button class="tab-btn active member-only" data-tab="courses">Startseite</button>
             <button class="tab-btn member-only" data-tab="bookings">Meine Buchungen</button>
+            <button class="tab-btn" data-tab="calendar">Kalender</button>
             <button class="tab-btn admin-only" data-tab="admin" style="display: none;">Admin-Panel</button>
         </div>
 
@@ -67,6 +68,43 @@
                 
                 <div id="userBookings" class="bookings-list">
                     <!-- User bookings will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar Tab -->
+        <div id="calendarTab" class="tab-content">
+            <div class="container">
+                <h3>Kalender</h3>
+                
+                <div class="calendar-container">
+                    <div class="calendar-header">
+                        <button id="prevMonth" class="calendar-nav-btn">&lt;</button>
+                        <h4 id="currentMonth"></h4>
+                        <button id="nextMonth" class="calendar-nav-btn">&gt;</button>
+                    </div>
+                    
+                    <div class="calendar-grid">
+                        <div class="calendar-weekdays">
+                            <div class="weekday">Mo</div>
+                            <div class="weekday">Di</div>
+                            <div class="weekday">Mi</div>
+                            <div class="weekday">Do</div>
+                            <div class="weekday">Fr</div>
+                            <div class="weekday">Sa</div>
+                            <div class="weekday">So</div>
+                        </div>
+                        <div id="calendarDays" class="calendar-days">
+                            <!-- Calendar days will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="selected-date-courses">
+                    <h4 id="selectedDateTitle">Wählen Sie ein Datum aus</h4>
+                    <div id="selectedDateCourses" class="courses-grid">
+                        <!-- Courses for selected date will be populated by JavaScript -->
+                    </div>
                 </div>
             </div>
         </div>
