@@ -291,29 +291,73 @@ class BookingApp {
     }
 
     async init() {
-        console.log('1. Initializing Supabase...');
-        await this.initializeSupabase();
-        console.log('2. Initializing Storage Manager...');
-        this.initializeStorageManager();
-        console.log('3. Loading data...');
-        await this.loadData();
-        console.log('4. Initializing default data...');
-        await this.initializeDefaultData();
-        console.log('5. Setting up event listeners...');
-        this.setupEventListeners();
-        console.log('6. Setting up connection status indicator...');
-        this.setupConnectionStatusIndicator();
-        
-        console.log('7. Checking Supabase session...');
-        await this.checkSupabaseSession();
-        if (this.currentUser) {
-            console.log('8. User found, showing main screen...');
-            await this.showMainScreen();
-        } else {
-            console.log('8. No user found, showing login screen...');
-            this.showLoginScreen();
+        try {
+            console.log('1. Initializing Supabase...');
+            await this.initializeSupabase();
+            
+            if (!this.supabaseReady) {
+                throw new Error('Datenbankverbindung konnte nicht hergestellt werden');
+            }
+            
+            console.log('2. Initializing Storage Manager...');
+            this.initializeStorageManager();
+            console.log('3. Loading data...');
+            await this.loadData();
+            console.log('4. Initializing default data...');
+            await this.initializeDefaultData();
+            console.log('5. Setting up event listeners...');
+            this.setupEventListeners();
+            console.log('6. Setting up connection status indicator...');
+            this.setupConnectionStatusIndicator();
+            
+            console.log('7. Checking Supabase session...');
+            await this.checkSupabaseSession();
+            if (this.currentUser) {
+                console.log('8. User found, showing main screen...');
+                await this.showMainScreen();
+            } else {
+                console.log('8. No user found, showing login screen...');
+                this.showLoginScreen();
+            }
+            console.log('9. Init process complete.');
+        } catch (error) {
+            console.error('Initialization failed:', error);
+            this.showConnectionError(error.message);
         }
-        console.log('9. Init process complete.');
+    }
+
+    showConnectionError(message) {
+        const loginScreen = document.getElementById('loginScreen');
+        const errorDiv = document.getElementById('loginError');
+        
+        if (errorDiv) {
+            errorDiv.innerHTML = `
+                <div style="text-align: center; padding: 20px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; color: #721c24; margin: 20px 0;">
+                    <h3 style="margin-top: 0; color: #721c24;">🔌 Verbindungsfehler</h3>
+                    <p style="margin: 15px 0;"><strong>${message}</strong></p>
+                    <p style="margin: 15px 0;">Bitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.</p>
+                    <button onclick="location.reload()" style="
+                        padding: 12px 24px; 
+                        background: #007bff; 
+                        color: white; 
+                        border: none; 
+                        border-radius: 6px; 
+                        cursor: pointer; 
+                        font-size: 16px;
+                        font-weight: bold;
+                        margin-top: 15px;
+                        transition: background-color 0.3s;
+                    " onmouseover="this.style.background='#0056b3'" onmouseout="this.style.background='#007bff'">
+                        🔄 Erneut versuchen
+                    </button>
+                </div>
+            `;
+            errorDiv.style.display = 'block';
+        }
+        
+        if (loginScreen) {
+            loginScreen.classList.add('active');
+        }
     }
 
     // Utility method to convert Date to YYYY-MM-DD format
@@ -658,12 +702,11 @@ class BookingApp {
 
     // Data Management
     async loadData() {
-        if (this.supabaseReady) {
-            await this.loadFromSupabase();
-        } else {
-            console.log('Supabase not ready - loading test data for development');
-            this.loadTestData();
+        if (!this.supabaseReady) {
+            throw new Error('Datenbankverbindung nicht verfügbar. Bitte überprüfen Sie Ihre Internetverbindung.');
         }
+        
+        await this.loadFromSupabase();
     }
 
     loadFromLocalStorage() {
@@ -679,9 +722,7 @@ class BookingApp {
             
             // Check Supabase connection first
             if (!this.supabaseReady) {
-                console.warn('Supabase connection not ready - loading test data for debugging');
-                this.loadTestData();
-                return;
+                throw new Error('Datenbankverbindung nicht bereit');
             }
             
             // Load users with error handling
@@ -703,8 +744,8 @@ class BookingApp {
                 }));
                 console.log(`Successfully loaded ${this.users.length} users from Supabase`);
             } catch (userError) {
-                console.error('Failed to load users, will try to continue with other data:', userError);
-                this.users = [];
+                console.error('Failed to load users:', userError);
+                throw new Error('Benutzerdaten konnten nicht geladen werden. Bitte versuchen Sie es später erneut.');
             }
 
             // Load courses with error handling
@@ -724,8 +765,8 @@ class BookingApp {
                 this.courses = courses || [];
                 console.log(`Successfully loaded ${this.courses.length} courses from Supabase (filtered from ${dateFilter})`);
             } catch (courseError) {
-                console.error('Failed to load courses, will try to continue with other data:', courseError);
-                this.courses = [];
+                console.error('Failed to load courses:', courseError);
+                throw new Error('Kursdaten konnten nicht geladen werden. Bitte versuchen Sie es später erneut.');
             }
 
             // Load bookings with error handling
@@ -768,6 +809,7 @@ class BookingApp {
                         processedBooking.courseName = booking.course_name || 'Unbekannter Kurs';
                         processedBooking.courseDate = booking.course_date || 'Unbekanntes Datum';
                         processedBooking.courseTime = booking.course_time || 'Unbekannte Zeit';
+                        console.warn('Booking without valid course date:', booking.id, 'course_id:', booking.course_id);
                     }
                     
                     return processedBooking;
@@ -775,146 +817,29 @@ class BookingApp {
                 console.log(`Successfully loaded ${this.bookings.length} bookings from Supabase`);
             } catch (bookingError) {
                 console.error('Failed to load bookings:', bookingError);
-                this.bookings = [];
+                throw new Error('Buchungsdaten konnten nicht geladen werden. Bitte versuchen Sie es später erneut.');
             }
 
         } catch (error) {
             console.error('Error loading data from Supabase:', error);
-            console.log('Loading test data for debugging');
-            this.loadTestData();
+            throw error; // Re-throw the error instead of falling back to test data
         }
     }
 
+    // DEAKTIVIERT: Test-Daten-Funktion für Produktionsumgebung entfernt
+    // Diese Funktion wurde deaktiviert, um zu verhindern, dass Test-Benutzer 
+    // erscheinen, wenn die Supabase-Verbindung fehlschlägt.
+    // Benutzer sollten stattdessen die Verbindung erneut versuchen.
     loadTestData() {
-        console.log('Loading test data for debugging...');
+        console.warn('Test-Daten wurden für die Produktionsumgebung deaktiviert.');
+        console.warn('Bitte stellen Sie sicher, dass eine gültige Datenbankverbindung besteht.');
         
-        // Create test user
-        this.users = [
-            {
-                id: 1,
-                first_name: 'Test',
-                last_name: 'User',
-                firstName: 'Test',
-                lastName: 'User',
-                email: 'test@example.com',
-                username: 'testuser',
-                password: 'test123',
-                role: 'Mitglied'
-            }
-        ];
+        // Leere Arrays initialisieren
+        this.users = [];
+        this.courses = [];
+        this.bookings = [];
         
-        // Create test courses for yesterday, today, and future dates
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const dayAfterTomorrow = new Date(today);
-        dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
-        
-        const todayStr = this.toYYYYMMDD(today);
-        const yesterdayStr = this.toYYYYMMDD(yesterday);
-        const tomorrowStr = this.toYYYYMMDD(tomorrow);
-        const dayAfterTomorrowStr = this.toYYYYMMDD(dayAfterTomorrow);
-
-        const courseYesterday = {
-            id: 'test-course-yesterday',
-            name: 'Fle.xx',
-            time: '08:45-09:30',
-            date: yesterdayStr,
-            date_display: yesterday.toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-            day_of_week: yesterday.toLocaleDateString('de-DE', { weekday: 'long' })
-        };
-
-        const courseToday = {
-            id: 'test-course-today',
-            name: 'Fle.xx',
-            time: '17:30–18:15',
-            date: todayStr,
-            date_display: today.toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-            day_of_week: today.toLocaleDateString('de-DE', { weekday: 'long' })
-        };
-
-        const courseTomorrow = {
-            id: 'test-course-tomorrow',
-            name: 'Fle.xx',
-            time: '09:45-10:30',
-            date: tomorrowStr,
-            date_display: tomorrow.toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-            day_of_week: tomorrow.toLocaleDateString('de-DE', { weekday: 'long' })
-        };
-
-        const courseDayAfterTomorrow = {
-            id: 'test-course-day-after-tomorrow',
-            name: 'Fle.xx',
-            time: '16:30-17:15',
-            date: dayAfterTomorrowStr,
-            date_display: dayAfterTomorrow.toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-            day_of_week: dayAfterTomorrow.toLocaleDateString('de-DE', { weekday: 'long' })
-        };
-
-        this.courses = [courseYesterday, courseToday, courseTomorrow, courseDayAfterTomorrow];
-
-        this.bookings = [
-            {
-                id: 'test-booking-yesterday',
-                user_id: 1,
-                userId: 1,
-                course_id: 'test-course-yesterday',
-                courseId: 'test-course-yesterday',
-                status: 'Bestätigt',
-                timestamp: new Date().toISOString(),
-                courseData: courseYesterday
-            },
-            {
-                id: 'test-booking-today',
-                user_id: 1,
-                userId: 1,
-                course_id: 'test-course-today',
-                courseId: 'test-course-today',
-                status: 'Bestätigt',
-                timestamp: new Date().toISOString(),
-                courseData: courseToday
-            },
-            {
-                id: 'test-booking-tomorrow',
-                user_id: 1,
-                userId: 1,
-                course_id: 'test-course-tomorrow',
-                courseId: 'test-course-tomorrow',
-                status: 'Bestätigt',
-                timestamp: new Date().toISOString(),
-                courseData: courseTomorrow
-            },
-            {
-                id: 'test-booking-day-after-tomorrow',
-                user_id: 1,
-                userId: 1,
-                course_id: 'test-course-day-after-tomorrow',
-                courseId: 'test-course-day-after-tomorrow',
-                status: 'Bestätigt',
-                timestamp: new Date().toISOString(),
-                courseData: courseDayAfterTomorrow
-            }
-        ];
-        
-        // Auto-login the test user
-        this.currentUser = this.users[0];
-        localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-        
-        console.log('Test data loaded:', {
-            users: this.users.length,
-            courses: this.courses.length,
-            bookings: this.bookings.length
-        });
-        
-        // Force render bookings after data load
-         setTimeout(() => {
-             if (this.currentUser) {
-                 console.log('🔄 Auto-rendering user bookings after data load');
-                 this.renderUserBookings();
-             }
-         }, 100);
+        throw new Error('Test-Daten sind nicht verfügbar. Datenbankverbindung erforderlich.');
     }
 
     async saveData() {
@@ -1298,6 +1223,7 @@ class BookingApp {
     async login(email, password) {
         if (!this.supabaseReady) {
             console.error('Supabase not available for authentication');
+            document.getElementById('loginError').textContent = 'Datenbankverbindung nicht verfügbar. Bitte versuchen Sie es später erneut.';
             return false;
         }
         
@@ -1313,6 +1239,7 @@ class BookingApp {
             
             if (error || !data) {
                 console.error('Login failed - invalid email or password:', error);
+                document.getElementById('loginError').textContent = 'Ungültige E-Mail-Adresse oder Passwort. Bitte versuchen Sie es erneut.';
                 return false;
             }
             
@@ -1333,6 +1260,7 @@ class BookingApp {
             
         } catch (error) {
             console.error('Login error:', error);
+            document.getElementById('loginError').textContent = 'Anmeldefehler aufgetreten. Bitte versuchen Sie es erneut.';
         }
         
         return false;
