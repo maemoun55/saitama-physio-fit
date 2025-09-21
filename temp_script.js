@@ -820,9 +820,51 @@ class BookingApp {
                 throw new Error('Buchungsdaten konnten nicht geladen werden. Bitte versuchen Sie es später erneut.');
             }
 
+            // Bereinige veraltete Buchungen nach dem Laden
+            await this.cleanupOrphanedBookings();
+
         } catch (error) {
             console.error('Error loading data from Supabase:', error);
             throw error; // Re-throw the error instead of falling back to test data
+        }
+    }
+
+    async cleanupOrphanedBookings() {
+        if (!this.supabaseReady) {
+            console.warn('Supabase nicht bereit für Datenbereinigung');
+            return;
+        }
+
+        try {
+            // Finde alle Buchungen ohne gültigen Kurs
+            const orphanedBookings = this.bookings.filter(booking => !booking.courseData);
+            
+            if (orphanedBookings.length === 0) {
+                console.log('✅ Keine veralteten Buchungen gefunden');
+                return;
+            }
+
+            console.log(`🧹 Bereinige ${orphanedBookings.length} veraltete Buchungen...`);
+            
+            // Lösche veraltete Buchungen aus der Datenbank
+            const bookingIds = orphanedBookings.map(b => b.id);
+            const { error } = await supabase
+                .from('bookings')
+                .delete()
+                .in('id', bookingIds);
+
+            if (error) {
+                console.error('Fehler beim Löschen veralteter Buchungen:', error);
+                return;
+            }
+
+            // Entferne sie auch aus dem lokalen Array
+            this.bookings = this.bookings.filter(booking => booking.courseData);
+            
+            console.log(`✅ ${orphanedBookings.length} veraltete Buchungen erfolgreich gelöscht`);
+            
+        } catch (error) {
+            console.error('Fehler bei der Datenbereinigung:', error);
         }
     }
 
