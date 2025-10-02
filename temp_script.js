@@ -991,16 +991,9 @@ class BookingApp {
     }
 
     async initializeDefaultData() {
-        // Initialize default users if none exist
-        if (this.users.length === 0 && this.supabaseReady) {
-            const defaultUsers = [
-                { id: 1, first_name: 'Admin', last_name: 'Benutzer', email: 'admin@saitama.com', username: 'admin', password: 'admin123', role: 'Admin' },
-        { id: 2, first_name: 'John', last_name: 'Doe', email: 'john.doe@email.com', username: 'member1', password: 'member123', role: 'Mitglied' },
-        { id: 3, first_name: 'Jane', last_name: 'Smith', email: 'jane.smith@email.com', username: 'member2', password: 'member456', role: 'Mitglied' }
-            ];
-            
-            await this.insertDefaultUsers(defaultUsers);
-        }
+        // Remove automatic creation of default users
+        // Admin must register normally through the registration form
+        console.log('initializeDefaultData: No default users will be created. Admin must register manually.');
 
         // Generate daily courses for the next 4 weeks
         const generatedCourses = this.generateDailyCourses();
@@ -1688,8 +1681,7 @@ class BookingApp {
                 <div class="empty-state">
                     <h4>Nicht angemeldet</h4>
                     <p>Sie müssen sich anmelden, um Ihre Buchungen zu sehen.</p>
-                    <button onclick="app.testLogin()" style="margin-top: 10px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Test Login (Debug)</button>
-                    <button onclick="app.debugBookings()" style="margin-top: 10px; margin-left: 10px; padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Debug Bookings</button>
+                    <!-- Test Login button removed for security -->
                 </div>
             `;
             return;
@@ -2611,32 +2603,37 @@ class BookingApp {
 
     // Debug function to test login
     testLogin() {
-        console.log('=== TEST LOGIN DEBUG ===');
-        console.log('Available users:', this.users);
+        console.log('Test login disabled for security reasons');
+        alert('Test-Login ist aus Sicherheitsgründen deaktiviert. Bitte verwenden Sie die normale Anmeldung.');
+        return;
         
-        // Try to login with the first available user (admin)
-        if (this.users.length > 0) {
-            const testUser = this.users.find(u => u.email === 'admin@saitama.com') || this.users[0];
-            console.log('Setting current user to:', testUser);
-            this.currentUser = testUser;
-            localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-            
-            // Create a test booking for today
-            const todayBooking = this.createTestBooking();
-            console.log('Created today booking:', todayBooking);
-            
-            // Show main screen and refresh bookings
-            this.showMainScreen();
-            this.renderUserBookings();
-            
-            console.log('Test login complete. Current user:', this.currentUser);
-            
-            // Alert to confirm test login and booking creation
-            alert('Test login successful. Created booking for today at 17:30.');
-        } else {
-            console.log('No users available for test login');
-            alert('No users available. Please check if data is loaded.');
-        }
+        // === DISABLED FOR SECURITY ===
+        // console.log('=== TEST LOGIN DEBUG ===');
+        // console.log('Available users:', this.users);
+        // 
+        // // Try to login with the first available user (admin)
+        // if (this.users.length > 0) {
+        //     const testUser = this.users.find(u => u.email === 'admin@saitama.com') || this.users[0];
+        //     console.log('Setting current user to:', testUser);
+        //     this.currentUser = testUser;
+        //     localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+        //     
+        //     // Create a test booking for today
+        //     const todayBooking = this.createTestBooking();
+        //     console.log('Created today booking:', todayBooking);
+        //     
+        //     // Show main screen and refresh bookings
+        //     this.showMainScreen();
+        //     this.renderUserBookings();
+        //     
+        //     console.log('Test login complete. Current user:', this.currentUser);
+        //     
+        //     // Alert to confirm test login and booking creation
+        //     alert('Test login successful. Created booking for today at 17:30.');
+        // } else {
+        //     console.log('No users available for test login');
+        //     alert('No users available. Please check if data is loaded.');
+        // }
     }
     
 

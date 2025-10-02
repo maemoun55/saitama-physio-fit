@@ -967,25 +967,9 @@ class BookingApp {
     }
 
     async initializeDefaultData() {
-        // Initialize default users if none exist
-        if (this.users.length === 0) {
-            const defaultUsers = [
-                { id: 1, first_name: 'Admin', last_name: 'User', email: 'admin@saitama.com', username: 'admin', password: 'admin123', role: 'Admin' },
-                { id: 2, first_name: 'John', last_name: 'Doe', email: 'john.doe@email.com', username: 'member1', password: 'member123', role: 'Member' },
-                { id: 3, first_name: 'Jane', last_name: 'Smith', email: 'jane.smith@email.com', username: 'member2', password: 'member456', role: 'Member' }
-            ];
-            
-            if (this.supabaseReady) {
-                await this.insertDefaultUsers(defaultUsers);
-            } else {
-                // Convert to old format for localStorage compatibility
-                this.users = defaultUsers.map(user => ({
-                    ...user,
-                    firstName: user.first_name,
-                    lastName: user.last_name
-                }));
-            }
-        }
+        // Remove automatic creation of default users
+        // Admin must register normally through the registration form
+        console.log('initializeDefaultData (script.js): No default users will be created. Admin must register manually.');
 
         // Generate daily courses for the next 4 weeks
         const generatedCourses = await this.generateDailyCourses();
@@ -998,7 +982,7 @@ class BookingApp {
                 this.courses = generatedCourses;
             }
         }
-        
+
         await this.saveData();
     }
 
