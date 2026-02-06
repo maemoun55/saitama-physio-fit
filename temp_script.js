@@ -1115,7 +1115,7 @@ class BookingApp {
                 { time: '19:00–19:45', name: 'TRX', trainer: 'Tom Mueller', maxParticipants: 8 }
             ],
             3: [ // Wednesday
-                { time: '08:45–09:00', name: 'Fle.xx', trainer: 'Anna Schmidt', maxParticipants: 12 },
+                { time: '08:45–09:30', name: 'Fle.xx', trainer: 'Anna Schmidt', maxParticipants: 12 },
                 { time: '09:45–10:30', name: 'Fle.xx', trainer: 'Anna Schmidt', maxParticipants: 12 },
                 { time: '17:15–18:00', name: 'Fle.xx', trainer: 'Lisa Hoffmann', maxParticipants: 10 },
                 { time: '18:15–19:00', name: 'Fle.xx', trainer: 'Lisa Hoffmann', maxParticipants: 10 }

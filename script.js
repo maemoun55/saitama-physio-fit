@@ -1172,7 +1172,7 @@ class BookingApp {
                 { time: '19:00–19:45', name: 'TRX' }
             ],
             3: [ // Wednesday
-                { time: '08:45–09:00', name: 'Fle.xx' },
+                { time: '08:45–09:30', name: 'Fle.xx' },
                 { time: '09:45–10:30', name: 'Fle.xx' },
                 { time: '17:15–18:00', name: 'Fle.xx' },
                 { time: '18:15–19:00', name: 'Fle.xx' }
