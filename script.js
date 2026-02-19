@@ -1638,9 +1638,7 @@ class BookingApp {
                     <div class="course-time">
                         <strong>Time:</strong> ${course.time}
                     </div>
-                    <div class="course-status ${statusClass}">
-                        ${userBooking ? `Booked (${userBooking.status})` : 'Available'}
-                    </div>
+                    ${userBooking ? `<div class="course-status ${statusClass}">Booked (${userBooking.status})</div>` : ''}
                     <button class="btn-primary" onclick="app.handleBookCourse('${course.id}')"
                                 ${userBooking ? 'disabled' : ''}>
                             ${userBooking ? 'Already Booked' : 'Book Now'}

@@ -17,6 +17,33 @@ class RealtimeBookingSystem {
         console.log('🔄 Initializing real-time features...');
         await this.setupRealtimeSubscriptions();
         this.addRealtimeUI();
+        
+        // Try to request notification permission (might need user gesture)
+        this.requestNotificationPermission();
+    }
+
+    requestNotificationPermission() {
+        if ('Notification' in window) {
+            if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                Notification.requestPermission().then(permission => {
+                    console.log('Notification permission:', permission);
+                });
+            }
+        }
+    }
+
+    sendSystemNotification(title, body) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+                new Notification(title, {
+                    body: body,
+                    icon: 'logo.png', // Assuming logo.png is in root
+                    vibrate: [200, 100, 200]
+                });
+            } catch (e) {
+                console.error('Error sending system notification:', e);
+            }
+        }
     }
 
     async setupRealtimeSubscriptions() {
@@ -121,7 +148,11 @@ class RealtimeBookingSystem {
         switch (eventType) {
             case 'INSERT':
                 console.log('➕ New booking created:', newRecord);
-                this.showNotification('New booking created!', 'success');
+                const isMyBooking = this.app.currentUser && this.app.currentUser.id === newRecord.user_id;
+                const isAdmin = this.app.currentUser && (this.app.currentUser.role === 'Admin' || this.app.currentUser.role === 'admin');
+                if (isMyBooking || isAdmin) {
+                    this.showNotification('New booking created!', 'success');
+                }
                 // Add to local bookings array
                 if (this.app && this.app.bookings) {
                     this.app.bookings.push({
@@ -140,12 +171,46 @@ class RealtimeBookingSystem {
                 
             case 'UPDATE':
                 console.log('✏️ Booking updated:', { old: oldRecord, new: newRecord });
-                // Booking status updated - no notification needed for smoother UX
-                // Update local booking
+                
+                // Check for status changes and notify user
                 if (this.app && this.app.bookings) {
                     const bookingIndex = this.app.bookings.findIndex(b => b.id === newRecord.id);
-                    console.log('🔍 Found booking at index:', bookingIndex);
+                    
                     if (bookingIndex !== -1) {
+                        const oldStatus = this.app.bookings[bookingIndex].status;
+                        const newStatus = newRecord.status;
+                        const isMyBooking = this.app.currentUser && this.app.currentUser.id === newRecord.user_id;
+                        const isAdmin = this.app.currentUser && (this.app.currentUser.role === 'Admin' || this.app.currentUser.role === 'admin');
+                        
+                        // Notify user if it's their booking
+                        if (oldStatus !== newStatus && isMyBooking) {
+                            let message = '';
+                            let type = 'info';
+                            
+                            if (newStatus === 'Confirmed' || newStatus === 'Bestätigt') {
+                                message = 'Dein Kurs wurde bestätigt! ✅';
+                                type = 'success';
+                            } else if (newStatus === 'Rejected' || newStatus === 'Abgelehnt') {
+                                message = 'Dein Kurs wurde abgelehnt. ❌';
+                                type = 'error';
+                            } else if (newStatus === 'Waiting List' || newStatus === 'Warteliste') {
+                                message = 'Du bist auf der Warteliste. ⏳';
+                                type = 'warning';
+                            }
+                            
+                            if (message) {
+                                this.showNotification(message, type);
+                                this.sendSystemNotification('Buchungsstatus aktualisiert', message);
+                            }
+                        }
+
+                        // Notify admin about status changes (if not their own booking, to avoid double notification)
+                        if (oldStatus !== newStatus && isAdmin && !isMyBooking) {
+                             this.showNotification(`Booking status changed: ${oldStatus} -> ${newStatus}`, 'info');
+                             this.sendSystemNotification('Admin Alert', `Booking status changed for user ${newRecord.user_id}: ${newStatus}`);
+                        }
+                        
+                        // Update local booking
                         console.log('📝 Updating booking:', this.app.bookings[bookingIndex]);
                         this.app.bookings[bookingIndex] = {
                             ...this.app.bookings[bookingIndex],
@@ -168,7 +233,11 @@ class RealtimeBookingSystem {
                 
             case 'DELETE':
                 console.log('🗑️ Booking deleted:', oldRecord);
-                this.showNotification('Booking deleted!', 'warning');
+                const isMyBooking = this.app.currentUser && this.app.currentUser.id === oldRecord.user_id;
+                const isAdmin = this.app.currentUser && (this.app.currentUser.role === 'Admin' || this.app.currentUser.role === 'admin');
+                if (isMyBooking || isAdmin) {
+                    this.showNotification('Booking deleted!', 'warning');
+                }
                 // Remove from local bookings array
                 if (this.app && this.app.bookings) {
                     const beforeCount = this.app.bookings.length;
@@ -185,11 +254,14 @@ class RealtimeBookingSystem {
 
     handleUserChange(payload) {
         const { eventType, new: newRecord, old: oldRecord } = payload;
+        const isAdmin = this.app && this.app.currentUser && (this.app.currentUser.role === 'Admin' || this.app.currentUser.role === 'admin');
         
         switch (eventType) {
             case 'INSERT':
                 console.log('➕ New user registered:', newRecord);
-                this.showNotification('New user registered!', 'success');
+                if (isAdmin) {
+                    this.showNotification('New user registered!', 'success');
+                }
                 if (this.app && this.app.users) {
                     this.app.users.push({
                         id: newRecord.id,

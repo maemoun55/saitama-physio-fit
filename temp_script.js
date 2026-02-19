@@ -71,6 +71,14 @@ function initializeSupabaseClient() {
                 })
                 .catch(error => {
                     console.error('Supabase connection test failed:', error);
+                    if (error.message === 'Failed to fetch' || error.message.includes('NetworkError')) {
+                        console.warn('Network error detected. This might be due to AdBlock or network restrictions.');
+                        // Optionally alert the user, but only once
+                        if (!sessionStorage.getItem('supabaseConnectionAlertShown')) {
+                            alert('Verbindung zur Datenbank fehlgeschlagen. Bitte deaktivieren Sie AdBlocker oder prüfen Sie Ihre Internetverbindung, da diese die Datenbankverbindung blockieren könnten.');
+                            sessionStorage.setItem('supabaseConnectionAlertShown', 'true');
+                        }
+                    }
                 });
             return true;
         } catch (error) {
@@ -1531,12 +1539,10 @@ class BookingApp {
                     <div class="course-time">
                         <strong>Zeit:</strong> ${course.time}
                     </div>
-                    <div class="course-status ${statusClass}">
-                        ${userBooking ? userBooking.status : 'Verfügbar'}
-                    </div>
+                    ${userBooking ? `<div class="course-status ${statusClass}">${userBooking.status}</div>` : ''}
                     <button class="btn-primary" onclick="app.handleBookCourse('${course.id}')"
                                 ${userBooking ? 'disabled' : ''}>
-                            ${userBooking ? userBooking.status : 'Jetzt buchen'}
+                            ${userBooking ? userBooking.status : 'Platz anfragen'}
                         </button>
                 `;
                 dayCoursesGrid.appendChild(courseCard);
