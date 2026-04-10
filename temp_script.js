@@ -161,8 +161,8 @@ function initializeSupabaseClient() {
             });
             console.log('Supabase client initialized successfully:', !!supabase);
 
-            // Test connection immediately
-            supabase.from('users').select('count', { count: 'exact', head: true })
+            // Test connection immediately (using 'courses' instead of 'users' to avoid AdBlockers)
+            supabase.from('courses').select('count', { count: 'exact', head: true })
                 .then(result => {
                     console.log('Supabase connection test result:', result);
                 })
@@ -616,45 +616,26 @@ class BookingApp {
                 setTimeout(() => reject(new Error('Connection timeout')), 10000)
             );
 
-            // Check if Supabase is available by making a simple authenticated request
-            const healthCheckPromise = fetch(`${SUPABASE_URL}/rest/v1/?apikey=${SUPABASE_ANON_KEY}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                }
-            }).then(response => {
-                if (!response.ok) {
-                    throw new Error(`Supabase health check failed: ${response.status}`);
-                }
-                return response.json();
-            });
+            // Use 'courses' instead of 'users' to avoid aggressive AdBlockers 
+            // blocking URLs with 'users'
+            const healthCheckPromise = supabase.from('courses').select('count', { count: 'exact', head: true });
 
             try {
-                await Promise.race([healthCheckPromise, timeoutPromise]);
+                const response = await Promise.race([healthCheckPromise, timeoutPromise]);
                 console.log('✅ Supabase API is reachable');
 
-                // Now try to query the users table
-                const { data, error, count } = await supabase.from('users').select('*', { count: 'exact', head: true });
-                console.log('Supabase test result:', { data, error });
-
-                if (!error) {
+                // If error is PGRST116 or 42P01, it just means the table doesn't exist yet, but connection IS working!
+                if (!response.error || response.error.code === 'PGRST116' || response.error.code === '42P01') {
                     this.supabaseReady = true;
                     console.log('✅ Supabase connection established successfully');
                 } else {
-                    console.error('❌ Supabase tables not accessible:', error);
+                    console.error('❌ Supabase tables not accessible:', response.error);
                     console.log('Error details:', {
-                        message: error.message,
-                        details: error.details,
-                        hint: error.hint,
-                        code: error.code
+                        message: response.error.message,
+                        details: response.error.details,
+                        hint: response.error.hint,
+                        code: response.error.code
                     });
-                    console.log('This might be because:');
-                    console.log('1. Tables have not been created in Supabase yet');
-                    console.log('2. Row Level Security (RLS) is blocking access');
-                    console.log('3. API key permissions are insufficient');
-                    console.log('Supabase connection failed - app requires database connection');
                     this.supabaseReady = false;
                 }
             } catch (queryError) {
