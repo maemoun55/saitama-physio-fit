@@ -1,47 +1,50 @@
 // Saitama Physio Fit Booking System
 // Data Management and Application Logic with Supabase Integration
 
-// Notification System
+// ── In-App Toast Notification System ─────────────────────────────────────────
 class NotificationSystem {
     constructor() {
         this.container = document.getElementById('notificationSystem');
         this.content = document.getElementById('notificationContent');
         this.message = document.getElementById('notificationMessage');
         this.closeBtn = document.getElementById('notificationClose');
-        
+
         // Initialize event listeners
         this.initEventListeners();
     }
-    
+
     initEventListeners() {
         // Close button event
-        this.closeBtn.addEventListener('click', () => this.hideNotification());
-        
+        if (this.closeBtn) {
+            this.closeBtn.addEventListener('click', () => this.hideNotification());
+        }
+
         // Listen for custom events
         document.addEventListener('supabase-storage-policy-error', () => {
             this.showNotification(
-                'Storage bucket creation failed due to security policy restrictions. Some file upload features may be limited.', 
+                'Storage bucket creation failed due to security policy restrictions. Some file upload features may be limited.',
                 'warning',
                 10000
             );
         });
     }
-    
+
     showNotification(message, type = 'info', duration = 5000) {
+        if (!this.message || !this.content) return;
         // Set message
         this.message.textContent = message;
-        
+
         // Reset classes and add type class
         this.content.className = 'notification';
         if (['info', 'success', 'warning', 'error'].includes(type)) {
             this.content.classList.add(type);
         }
-        
+
         // Show notification
         setTimeout(() => {
             this.content.classList.remove('hidden');
         }, 10);
-        
+
         // Auto-hide after duration
         if (duration > 0) {
             this.autoHideTimeout = setTimeout(() => {
@@ -49,19 +52,137 @@ class NotificationSystem {
             }, duration);
         }
     }
-    
+
     hideNotification() {
         // Clear auto-hide timeout if exists
         if (this.autoHideTimeout) {
             clearTimeout(this.autoHideTimeout);
         }
-        
+
         // Hide notification
-        this.content.classList.add('hidden');
+        if (this.content) {
+            this.content.classList.add('hidden');
+        }
     }
 }
 
-// Initialize notification system when DOM is loaded
+// ── Native Browser / Push Notification Manager ────────────────────────────────
+const PushNotificationManager = {
+    STORAGE_KEY: 'saitama_push_enabled',
+
+    /** Returns true if the Notification API is supported by this browser */
+    isSupported() {
+        return 'Notification' in window;
+    },
+
+    /** Returns the current permission state: 'granted', 'denied', or 'default' */
+    getPermission() {
+        return this.isSupported() ? Notification.permission : 'denied';
+    },
+
+    /** Returns true if the user has previously granted permission */
+    isEnabled() {
+        return this.getPermission() === 'granted' &&
+            localStorage.getItem(this.STORAGE_KEY) === 'true';
+    },
+
+    /**
+     * Ask the user for notification permission.
+     * Updates the bell button UI accordingly.
+     * Returns true on success.
+     */
+    async requestPermission() {
+        if (!this.isSupported()) {
+            console.warn('[PushNotificationManager] Notifications not supported in this browser.');
+            return false;
+        }
+
+        if (this.getPermission() === 'denied') {
+            alert('Benachrichtigungen wurden blockiert. Bitte aktivieren Sie sie in den Browser-Einstellungen und laden Sie die Seite neu.');
+            return false;
+        }
+
+        const result = await Notification.requestPermission();
+        const granted = result === 'granted';
+        localStorage.setItem(this.STORAGE_KEY, granted ? 'true' : 'false');
+        this.updateBellButton(granted);
+
+        if (granted) {
+            // Send a welcome notification to confirm it works
+            this.show('✅ Benachrichtigungen aktiviert', 'Sie erhalten ab jetzt Benachrichtigungen über Ihre Buchungen.');
+        }
+        return granted;
+    },
+
+    /**
+     * Show a native browser notification.
+     * Falls back to the in-app toast if push is not available.
+     * @param {string} title
+     * @param {string} body
+     * @param {object} [options]
+     */
+    show(title, body, options = {}) {
+        if (this.getPermission() === 'granted') {
+            // Try to go through the service worker (works even when tab loses focus)
+            if (navigator.serviceWorker && window._swRegistration) {
+                window._swRegistration.active && window._swRegistration.active.postMessage({
+                    type: 'SHOW_NOTIFICATION',
+                    title,
+                    body,
+                    tag: options.tag || 'saitama'
+                });
+            } else {
+                // Fallback: direct Notification API (only works while tab is open)
+                new Notification(title, {
+                    body,
+                    icon: '/logo.png',
+                    tag: options.tag || 'saitama',
+                    ...options
+                });
+            }
+        } else if (window.notificationSystem) {
+            // Degrade gracefully to in-app toast
+            window.notificationSystem.showNotification(`${title}: ${body}`, options.type || 'info');
+        }
+    },
+
+    /** Update the 🔔 button in the nav bar to reflect current state */
+    updateBellButton(granted) {
+        const btn = document.getElementById('notificationPermissionBtn');
+        if (!btn) return;
+        if (!this.isSupported() || this.getPermission() === 'denied') {
+            btn.textContent = '🔕';
+            btn.title = 'Benachrichtigungen nicht verfügbar';
+        } else if (granted) {
+            btn.textContent = '🔔✓';
+            btn.title = 'Benachrichtigungen aktiviert';
+            btn.style.color = '#00AEEF';
+        } else {
+            btn.textContent = '🔔';
+            btn.title = 'Benachrichtigungen aktivieren';
+            btn.style.color = '';
+        }
+    },
+
+    /** Call this after login to show the bell button and wire it up */
+    initBellButton() {
+        const btn = document.getElementById('notificationPermissionBtn');
+        if (!btn) return;
+
+        // Show the button only if notifications are supported
+        if (this.isSupported()) {
+            btn.style.display = '';
+            this.updateBellButton(this.getPermission() === 'granted');
+
+            btn.addEventListener('click', () => this.requestPermission(), { once: false });
+        }
+    }
+};
+
+// Make it globally accessible
+window.PushNotificationManager = PushNotificationManager;
+
+// ── Initialize both systems when DOM is ready ─────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     window.notificationSystem = new NotificationSystem();
 });
@@ -103,14 +224,14 @@ const STORAGE_BUCKETS = {
 
 // Initialize Supabase clients - service role for admin operations, anon for client operations
 let supabase, supabaseAdmin;
-if (typeof window !== 'undefined' && window.supabase && 
+if (typeof window !== 'undefined' && window.supabase &&
     SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
     try {
         // Check if we're using Supabase v1.x or v2.x
         if (typeof window.supabase.createClient === 'function') {
             // Supabase v2.x initialization
             console.log('Using Supabase v2.x API');
-            
+
             // Admin client with service role (full access)
             supabaseAdmin = window.supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
                 auth: {
@@ -126,7 +247,7 @@ if (typeof window !== 'undefined' && window.supabase &&
                     }
                 }
             });
-            
+
             // Client with anon key (for user operations)
             supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
                 auth: {
@@ -145,7 +266,7 @@ if (typeof window !== 'undefined' && window.supabase &&
         } else if (typeof window.supabase === 'function') {
             // Supabase v1.x initialization
             console.log('Using Supabase v1.x API');
-            
+
             // Admin client with service role
             supabaseAdmin = window.supabase(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
                 autoRefreshToken: false,
@@ -154,7 +275,7 @@ if (typeof window !== 'undefined' && window.supabase &&
                     'apikey': SUPABASE_SERVICE_KEY
                 }
             });
-            
+
             // Client with anon key
             supabase = window.supabase(SUPABASE_URL, SUPABASE_ANON_KEY, {
                 autoRefreshToken: true,
@@ -168,7 +289,7 @@ if (typeof window !== 'undefined' && window.supabase &&
             throw new Error('Supabase client initialization failed: API not available');
         }
         console.log('Supabase clients initialized successfully (admin + client)');
-        
+
         // Make supabase client available globally for realtime integration
         window.supabaseClient = supabase;
         window.supabaseAdminClient = supabaseAdmin;
@@ -192,21 +313,21 @@ class StorageManager {
     // Validate file before upload
     validateFile(file, type = 'image') {
         const errors = [];
-        
+
         if (!file) {
             errors.push('No file selected');
             return errors;
         }
-        
+
         if (file.size > this.maxFileSize) {
             errors.push(`File size must be less than ${this.maxFileSize / (1024 * 1024)}MB`);
         }
-        
+
         const allowedTypes = type === 'image' ? this.allowedImageTypes : this.allowedDocumentTypes;
         if (!allowedTypes.includes(file.type)) {
             errors.push(`File type ${file.type} is not allowed`);
         }
-        
+
         return errors;
     }
 
@@ -338,7 +459,7 @@ class StorageManager {
             // and the buckets should be created by an admin in the Supabase dashboard
             let skipBucketCreation = false;
             let securityPolicyErrorDetected = false;
-            
+
             for (const [key, bucketName] of Object.entries(STORAGE_BUCKETS)) {
                 try {
                     // Check for row-level security policy errors in previous operations
@@ -346,7 +467,7 @@ class StorageManager {
                         console.warn(`Skipping bucket creation for ${bucketName} due to previous security policy errors`);
                         continue;
                     }
-                    
+
                     // Try to get bucket info (this will fail if bucket doesn't exist)
                     let bucketResult;
                     try {
@@ -357,13 +478,13 @@ class StorageManager {
                             // Supabase v2.x API
                             bucketResult = await this.supabase.storage.getBucket(bucketName);
                         }
-                        
+
                         const { data, error } = bucketResult;
-                        
+
                         if (error && error.message && error.message.includes('not found')) {
                             // Bucket doesn't exist, try to create it
                             console.log(`Creating storage bucket: ${bucketName}`);
-                            
+
                             let createResult;
                             try {
                                 if (isV1) {
@@ -379,12 +500,12 @@ class StorageManager {
                                         fileSizeLimit: this.maxFileSize
                                     });
                                 }
-                                
+
                                 const { data: createData, error: createError } = createResult;
-                                
+
                                 if (createError) {
                                     console.error(`Failed to create bucket ${bucketName}:`, createError);
-                                    
+
                                     // Check for row-level security policy errors
                                     if (createError.message && createError.message.includes('row-level security policy')) {
                                         securityPolicyErrorDetected = true;
@@ -396,7 +517,7 @@ class StorageManager {
                                 }
                             } catch (createBucketError) {
                                 console.error(`Error creating bucket ${bucketName}:`, createBucketError);
-                                
+
                                 // Check for row-level security policy errors
                                 if (createBucketError.message && createBucketError.message.includes('row-level security policy')) {
                                     securityPolicyErrorDetected = true;
@@ -409,7 +530,7 @@ class StorageManager {
                         }
                     } catch (bucketError) {
                         console.error(`Error with bucket ${bucketName}:`, bucketError);
-                        
+
                         // Check for row-level security policy errors
                         if (bucketError.message && bucketError.message.includes('row-level security policy')) {
                             securityPolicyErrorDetected = true;
@@ -421,7 +542,7 @@ class StorageManager {
                     console.error(`General error with bucket ${bucketName}:`, error);
                 }
             }
-            
+
             // Display a user-friendly message if security policy errors were detected
             if (securityPolicyErrorDetected) {
                 console.info('-----------------------------------------------------------');
@@ -433,7 +554,7 @@ class StorageManager {
                 console.info('1. Have an admin create the required buckets in the Supabase dashboard, or');
                 console.info('2. Adjust the row-level security policies to allow bucket creation for your role.');
                 console.info('-----------------------------------------------------------');
-                
+
                 // Emit an event that can be used to show a notification to the user
                 const event = new CustomEvent('supabase-storage-policy-error');
                 document.dispatchEvent(event);
@@ -441,7 +562,7 @@ class StorageManager {
         } catch (error) {
             console.error('Error initializing storage buckets:', error);
         }
-     }
+    }
 }
 
 class BookingApp {
@@ -464,7 +585,7 @@ class BookingApp {
         await this.initializeDefaultData();
         this.setupEventListeners();
         this.setupConnectionStatusIndicator();
-        
+
         // Check for existing session via Supabase auth
         this.checkSupabaseSession();
     }
@@ -474,7 +595,7 @@ class BookingApp {
             // Use admin client for storage operations (full access)
             this.storageManager = new StorageManager(this.supabaseAdmin);
             console.log('✅ Storage Manager initialized with admin access');
-            
+
             // Initialize storage buckets if Supabase is ready
             if (this.supabaseReady) {
                 this.storageManager.initializeBuckets();
@@ -483,7 +604,7 @@ class BookingApp {
             console.warn('⚠️ Storage Manager not initialized - Supabase admin client unavailable');
         }
     }
-    
+
     setupConnectionStatusIndicator() {
         // Create a status indicator element
         const statusIndicator = document.createElement('div');
@@ -497,7 +618,7 @@ class BookingApp {
         statusIndicator.style.fontWeight = 'bold';
         statusIndicator.style.zIndex = '1000';
         statusIndicator.style.display = 'none'; // Hidden by default
-        
+
         // Update the status indicator based on Supabase connection
         if (!this.supabaseReady) {
             statusIndicator.textContent = '❌ Database Connection Error';
@@ -506,10 +627,10 @@ class BookingApp {
             statusIndicator.style.border = '1px solid #F5C6CB';
             statusIndicator.style.display = 'block';
         }
-        
+
         // Add the indicator to the document body
         document.body.appendChild(statusIndicator);
-        
+
         // Listen for connection status changes
         document.addEventListener('supabase-save-error', () => {
             statusIndicator.textContent = '🔄 Offline Mode - Using Local Storage';
@@ -518,14 +639,14 @@ class BookingApp {
             statusIndicator.style.border = '1px solid #FFEEBA';
             statusIndicator.style.display = 'block';
         });
-        
+
         document.addEventListener('supabase-save-success', () => {
             // Hide the indicator after successful save
             setTimeout(() => {
                 statusIndicator.style.display = 'none';
             }, 3000);
         });
-        
+
         // Add retry button for reconnection
         const retryButton = document.createElement('button');
         retryButton.textContent = 'Retry Connection';
@@ -536,20 +657,20 @@ class BookingApp {
         retryButton.style.border = 'none';
         retryButton.style.borderRadius = '3px';
         retryButton.style.cursor = 'pointer';
-        
+
         retryButton.addEventListener('click', async () => {
             retryButton.textContent = 'Connecting...';
             retryButton.disabled = true;
-            
+
             // Attempt to reconnect to Supabase
             await this.initializeSupabase();
-            
+
             if (this.supabaseReady) {
                 statusIndicator.textContent = '✅ Connected to Supabase';
                 statusIndicator.style.backgroundColor = '#D4EDDA';
                 statusIndicator.style.color = '#155724';
                 statusIndicator.style.border = '1px solid #C3E6CB';
-                
+
                 // Hide after 3 seconds
                 setTimeout(() => {
                     statusIndicator.style.display = 'none';
@@ -560,11 +681,11 @@ class BookingApp {
                 statusIndicator.style.color = '#721C24';
                 statusIndicator.style.border = '1px solid #F5C6CB';
             }
-            
+
             retryButton.textContent = 'Retry Connection';
             retryButton.disabled = false;
         });
-        
+
         statusIndicator.appendChild(retryButton);
     }
 
@@ -574,40 +695,40 @@ class BookingApp {
             this.supabaseReady = false;
             return;
         }
-        
+
         // Set instance properties from global variables
         this.supabase = supabase;
         this.supabaseAdmin = supabaseAdmin;
-        
+
         console.log('DEBUG: Setting Supabase clients:', {
             supabase: !!supabase,
             supabaseAdmin: !!supabaseAdmin,
             thisSupabase: !!this.supabase,
             thisSupabaseAdmin: !!this.supabaseAdmin
         });
-        
+
         console.log('Testing Supabase connection...');
         console.log('Supabase URL:', SUPABASE_URL);
         console.log('Supabase client initialized:', !!supabase);
-        
+
         try {
             // Detect Supabase version
             const isV1 = typeof window.supabase === 'function';
             console.log(`Using Supabase ${isV1 ? 'v1.x' : 'v2.x'} API for queries`);
-            
+
             // For v1.x, we don't need to check for supabase.from as it's always available
             if (!isV1 && (!supabase.from || typeof supabase.from !== 'function')) {
                 throw new Error('TypeError: Supabase client methods are not available. Check Supabase library version.');
             }
-            
+
             // Test connection with a simpler query first
             console.log('Attempting to connect to Supabase...');
-            
+
             // Add timeout to prevent hanging requests
-            const timeoutPromise = new Promise((_, reject) => 
+            const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Connection timeout')), 10000)
             );
-            
+
             // Check if Supabase is available by making a simple request
             // Use a more reliable endpoint that doesn't require authentication
             const healthCheckPromise = fetch(`${SUPABASE_URL}/rest/v1/?apikey=${SUPABASE_ANON_KEY}`, {
@@ -622,11 +743,11 @@ class BookingApp {
                 }
                 return response.json();
             });
-            
+
             try {
                 await Promise.race([healthCheckPromise, timeoutPromise]);
                 console.log('✅ Supabase API is reachable');
-                
+
                 // Now try to query the users table
                 try {
                     let result;
@@ -640,9 +761,9 @@ class BookingApp {
                         // Supabase v2.x API
                         result = await supabase.from('users').select('*', { count: 'exact', head: true });
                     }
-                    
+
                     console.log('Supabase test result:', result);
-                    
+
                     if (!result.error) {
                         this.supabaseReady = true;
                         console.log('✅ Supabase connection established successfully');
@@ -706,16 +827,16 @@ class BookingApp {
 
         try {
             console.log('Creating database tables...');
-            
+
             // Create users table
             await this.createUsersTable();
-            
+
             // Create courses table
             await this.createCoursesTable();
-            
+
             // Create bookings table
             await this.createBookingsTable();
-            
+
             console.log('All tables created successfully!');
         } catch (error) {
             console.error('Error creating tables:', error);
@@ -749,7 +870,7 @@ class BookingApp {
         }
         console.log('Bookings table created/verified');
     }
-    
+
     // Data Management
     async loadData() {
         if (!this.supabaseReady) {
@@ -770,17 +891,17 @@ class BookingApp {
     async loadFromSupabase() {
         try {
             console.log('Attempting to load data from Supabase...');
-            
+
             // Check Supabase connection first
             if (!this.supabaseReady || !this.supabaseAdmin) {
                 console.error('Supabase connection not ready - cannot load data');
                 throw new Error('Database connection not available. Please check your internet connection.');
             }
-            
+
             // Detect Supabase version
             const isV1 = typeof window.supabase === 'function';
             console.log(`Using Supabase ${isV1 ? 'v1.x' : 'v2.x'} API for data loading`);
-            
+
             // Load users and courses in parallel to ensure they are available for booking processing
             await Promise.all([
                 (async () => {
@@ -819,7 +940,7 @@ class BookingApp {
                     console.error('Error loading bookings:', bookingsError);
                     throw bookingsError;
                 }
-                
+
                 // Add compatibility fields for bookings
                 this.bookings = (bookings || []).map(booking => {
                     console.log('Processing booking from Supabase:', booking);
@@ -828,7 +949,7 @@ class BookingApp {
                         userId: booking.user_id,
                         courseId: booking.course_id
                     };
-                    
+
                     // Find the corresponding course to get current data
                     const course = this.courses.find(c => c.id === booking.course_id);
                     if (course) {
@@ -848,7 +969,7 @@ class BookingApp {
                         processedBooking.courseDate = booking.course_date || 'Unknown Date';
                         processedBooking.courseTime = booking.course_time || 'Unknown Time';
                     }
-                    
+
                     console.log('Processed booking:', processedBooking);
                     return processedBooking;
                 });
@@ -879,7 +1000,7 @@ class BookingApp {
         const today = new Date();
         const threeDaysAgo = new Date(today);
         threeDaysAgo.setDate(today.getDate() - 3);
-        
+
         // Return the date in YYYY-MM-DD format for Supabase filtering
         return this.toYYYYMMDD(threeDaysAgo);
     }
@@ -903,18 +1024,18 @@ class BookingApp {
             console.warn('Supabase connection not ready - cannot save data');
             throw new Error('Database connection not available. Please check your internet connection.');
         }
-        
+
         console.log('🔄 Attempting to save data to Supabase...');
-        
+
         try {
             // Detect Supabase version
             const isV1 = typeof window.supabase === 'function';
             console.log(`Using Supabase ${isV1 ? 'v1.x' : 'v2.x'} API for saving data`);
-            
+
             // Save bookings to Supabase
             if (this.bookings && this.bookings.length > 0) {
                 console.log('💾 Saving bookings to Supabase:', this.bookings.length);
-                
+
                 // Prepare bookings for Supabase (clean format)
                 const supabaseBookings = this.bookings.map(booking => ({
                     id: booking.id,
@@ -924,7 +1045,7 @@ class BookingApp {
                     timestamp: booking.timestamp,
                     cancellation_date: booking.cancellation_date || null
                 }));
-                
+
                 // Use upsert to handle both inserts and updates
                 let result;
                 if (isV1) {
@@ -939,28 +1060,28 @@ class BookingApp {
                         .upsert(supabaseBookings, { onConflict: 'id' })
                         .select();
                 }
-                
+
                 const { data, error } = result;
                 if (error) {
                     console.error('❌ Error saving bookings to Supabase:', error);
                     throw error;
                 }
-                
+
                 console.log('✅ Bookings saved to Supabase successfully:', data?.length || supabaseBookings.length);
             }
-            
+
             console.log('✅ All data saved to Supabase successfully');
-            
+
             // Emit an event that data was saved successfully
             const event = new CustomEvent('supabase-save-success');
             document.dispatchEvent(event);
         } catch (error) {
             console.error('❌ Error saving data to Supabase:', error);
-            
+
             // Emit an event that data save failed
             const event = new CustomEvent('supabase-save-error', { detail: error });
             document.dispatchEvent(event);
-            
+
             // Re-throw the error so calling functions know it failed
             throw error;
         }
@@ -998,11 +1119,11 @@ class BookingApp {
                 password: user.password,
                 role: user.role
             }));
-            
+
             // Detect Supabase version
             const isV1 = typeof window.supabase === 'function';
             console.log(`Using Supabase ${isV1 ? 'v1.x' : 'v2.x'} API for inserting users`);
-            
+
             let result;
             if (isV1) {
                 // Supabase v1.x API
@@ -1016,7 +1137,7 @@ class BookingApp {
                     .insert(supabaseUsers)
                     .select();
             }
-            
+
             const { data, error } = result;
             if (error) throw error;
             this.users = data || supabaseUsers; // Use inserted data if available, otherwise use the input data
@@ -1036,7 +1157,7 @@ class BookingApp {
             console.log('=== COURSE INSERT DEBUG ===');
             console.log('Attempting to insert courses:', courses.length);
             console.log('Sample course data:', courses[0]);
-            
+
             // Create clean objects with only database column names
             const supabaseCourses = courses.map(course => ({
                 id: course.id,
@@ -1046,14 +1167,14 @@ class BookingApp {
                 date_display: course.date_display,
                 day_of_week: course.day_of_week
             }));
-            
+
             console.log('Cleaned courses for Supabase:', supabaseCourses.length);
             console.log('Sample cleaned course:', supabaseCourses[0]);
-            
+
             // Detect Supabase version
             const isV1 = typeof window.supabase === 'function';
             console.log(`Using Supabase ${isV1 ? 'v1.x' : 'v2.x'} API for inserting courses`);
-            
+
             let result;
             if (isV1) {
                 // Supabase v1.x API
@@ -1067,10 +1188,10 @@ class BookingApp {
                     .insert(supabaseCourses)
                     .select();
             }
-            
+
             const { data, error } = result;
             console.log('Course insert response - data:', data, 'error:', error);
-            
+
             if (error) {
                 console.error('Course insert error details:', {
                     message: error.message,
@@ -1080,7 +1201,7 @@ class BookingApp {
                 });
                 throw error;
             }
-            
+
             this.courses = data || supabaseCourses; // Use inserted data if available, otherwise use the input data
             console.log('Successfully inserted courses. Final course count:', this.courses.length);
             console.log('===========================');
@@ -1095,7 +1216,7 @@ class BookingApp {
         const year = date.getFullYear();
         const month = date.getMonth() + 1; // JavaScript months are 0-indexed
         const day = date.getDate();
-        
+
         // Fixed holidays
         const fixedHolidays = [
             { month: 1, day: 1 },   // New Year's Day
@@ -1104,19 +1225,19 @@ class BookingApp {
             { month: 12, day: 25 }, // Christmas Day
             { month: 12, day: 26 }  // Boxing Day
         ];
-        
+
         // Check fixed holidays
         for (const holiday of fixedHolidays) {
             if (month === holiday.month && day === holiday.day) {
                 return true;
             }
         }
-        
+
         // Calculate Easter Sunday for variable holidays
         const easter = this.calculateEaster(year);
         const easterMonth = easter.getMonth() + 1;
         const easterDay = easter.getDate();
-        
+
         // Variable holidays based on Easter
         const variableHolidays = [
             { month: easterMonth, day: easterDay - 2 },     // Good Friday
@@ -1124,7 +1245,7 @@ class BookingApp {
             { month: easterMonth, day: easterDay + 39 },    // Ascension Day
             { month: easterMonth, day: easterDay + 50 }     // Whit Monday
         ];
-        
+
         // Check variable holidays (handle month overflow)
         for (const holiday of variableHolidays) {
             let holidayDate = new Date(year, easter.getMonth(), easterDay + (holiday.day - easterDay));
@@ -1132,10 +1253,10 @@ class BookingApp {
                 return true;
             }
         }
-        
+
         return false;
     }
-    
+
     // Calculate Easter Sunday using the algorithm
     calculateEaster(year) {
         const a = year % 19;
@@ -1186,28 +1307,28 @@ class BookingApp {
                 { time: '09:45–10:30', name: 'Fle.xx' }
             ]
         };
-        
+
         // Generate courses for the next 4 weeks (28 days)
         for (let dayOffset = 0; dayOffset < 28; dayOffset++) {
             const currentDate = new Date(today);
             currentDate.setDate(today.getDate() + dayOffset);
-            
+
             // Reset time to start of day for proper comparison
             const todayStart = new Date(today);
             todayStart.setHours(0, 0, 0, 0);
             currentDate.setHours(0, 0, 0, 0);
-            
+
             // Skip past dates (only show today and future courses)
             if (currentDate < todayStart) continue;
-            
+
             const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
-            
+
             // Skip weekends (Saturday = 6, Sunday = 0)
             if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-            
+
             // Skip German holidays
             if (this.isGermanHoliday(currentDate)) continue;
-            
+
             const daySchedule = weeklySchedule[dayOfWeek];
             if (daySchedule) {
                 daySchedule.forEach(session => {
@@ -1217,7 +1338,7 @@ class BookingApp {
                     const hours = timeComponents[0];
                     const minutes = timeComponents[1] || 0;
                     const timeInMinutes = hours * 60 + minutes;
-                    
+
                     // Create a simple hash from the combination of date, time, and session name
                     const idString = `${dateStr}-${timeInMinutes}-${session.name}`;
                     let hash = 0;
@@ -1227,24 +1348,24 @@ class BookingApp {
                         hash = hash & hash; // Convert to 32-bit integer
                     }
                     const stableId = Math.abs(hash);
-                    
+
                     courses.push({
                         id: stableId,
                         name: session.name,
                         time: session.time,
                         date: dateStr,
-                        date_display: currentDate.toLocaleDateString('de-DE', { 
-                            weekday: 'long', 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
+                        date_display: currentDate.toLocaleDateString('de-DE', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
                         }),
                         day_of_week: currentDate.toLocaleDateString('de-DE', { weekday: 'long' })
                     });
                 });
             }
         }
-        
+
         try {
             // Check if Supabase is available
             if (this.supabaseReady && this.supabaseAdmin) {
@@ -1253,13 +1374,13 @@ class BookingApp {
                     .from('courses')
                     .delete()
                     .neq('id', 0); // Delete all courses
-                
+
                 if (clearError) {
                     console.warn('Error clearing existing courses:', clearError);
                 }
-                
+
                 console.log('Cleared all existing courses to prevent duplicates with new ID system');
-                
+
                 // Remove past courses from the database (for future runs)
                 const todayStr = today.toISOString().split('T')[0];
 
@@ -1295,10 +1416,10 @@ class BookingApp {
 
                 console.log('Fetched courses from database after insertion:', allCourses?.length || 0);
                 console.log('Sample course from DB:', allCourses?.[0]);
-                
+
                 // CRITICAL: Update the app's course array with the database courses
                 this.courses = allCourses || [];
-                
+
                 return allCourses;
             } else {
                 console.warn('Supabase not ready, using locally generated courses');
@@ -1317,11 +1438,11 @@ class BookingApp {
             this.showLoginScreen();
             return;
         }
-        
+
         try {
             // Check if user is already logged in via Supabase auth
             const { data: { user }, error } = await this.supabase.auth.getUser();
-            
+
             if (user && !error) {
                 // Get additional user data from users table
                 const { data: userData } = await this.supabaseAdmin
@@ -1329,7 +1450,7 @@ class BookingApp {
                     .select('*')
                     .eq('email', user.email)
                     .single();
-                
+
                 if (userData) {
                     this.currentUser = userData;
                     if (userData.first_name) {
@@ -1343,7 +1464,7 @@ class BookingApp {
         } catch (error) {
             console.error('Error checking session:', error);
         }
-        
+
         this.showLoginScreen();
     }
 
@@ -1353,19 +1474,19 @@ class BookingApp {
             console.error('Supabase not ready for login');
             return false;
         }
-        
+
         try {
             // Use Supabase auth for login
             const { data: authData, error: authError } = await this.supabase.auth.signInWithPassword({
                 email: email,
                 password: password
             });
-            
+
             if (authError) {
                 console.error('Auth login error:', authError);
                 return false;
             }
-            
+
             if (authData.user) {
                 // Get user data from users table
                 const { data: userData, error: userError } = await this.supabaseAdmin
@@ -1373,7 +1494,7 @@ class BookingApp {
                     .select('*')
                     .eq('email', email)
                     .single();
-                
+
                 if (userData && !userError) {
                     this.currentUser = userData;
                     if (userData.first_name) {
@@ -1387,17 +1508,17 @@ class BookingApp {
         } catch (error) {
             console.error('Login error:', error);
         }
-        
+
         return false;
     }
 
     async logout() {
         console.log('=== LOGOUT FUNCTION CALLED ===');
         console.log('Current user before clearing:', this.currentUser);
-        
+
         this.currentUser = null;
         console.log('Current user after clearing:', this.currentUser);
-        
+
         // Sign out from Supabase auth
         if (this.supabaseReady) {
             try {
@@ -1410,7 +1531,7 @@ class BookingApp {
         } else {
             console.log('Supabase not ready, skipping auth signout');
         }
-        
+
         console.log('Calling showLoginScreen...');
         this.showLoginScreen();
         console.log('=== LOGOUT FUNCTION COMPLETED ===');
@@ -1422,39 +1543,39 @@ class BookingApp {
         const loginScreen = document.getElementById('loginScreen');
         const mainScreen = document.getElementById('mainScreen');
         const loginForm = document.getElementById('loginForm');
-        
+
         console.log('Login screen element:', loginScreen);
         console.log('Main screen element:', mainScreen);
         console.log('Login form element:', loginForm);
-        
+
         console.log('Before - Login screen classes:', loginScreen.className);
         console.log('Before - Main screen classes:', mainScreen.className);
-        
+
         loginScreen.classList.add('active');
         mainScreen.classList.remove('active');
-        
+
         console.log('After - Login screen classes:', loginScreen.className);
         console.log('After - Main screen classes:', mainScreen.className);
-        
+
         if (loginForm) {
             loginForm.reset();
             console.log('Login form reset');
         } else {
             console.error('Login form not found!');
         }
-        
+
         console.log('=== SHOW LOGIN SCREEN COMPLETED ===');
     }
 
     async showMainScreen() {
         document.getElementById('loginScreen').classList.remove('active');
         document.getElementById('mainScreen').classList.add('active');
-        
+
         // Safe property access for user name display
         const firstName = this.currentUser?.firstName || this.currentUser?.first_name || 'User';
         const lastName = this.currentUser?.lastName || this.currentUser?.last_name || '';
         document.getElementById('welcomeUser').textContent = `Welcome, ${firstName} ${lastName}`.trim();
-        
+
         // Ensure courses are loaded from Supabase and generate if needed
         console.log('DEBUG: Ensuring courses are available...');
         try {
@@ -1462,11 +1583,11 @@ class BookingApp {
             const { data: existingCourses, error } = await this.supabaseAdmin
                 .from('courses')
                 .select('*');
-            
+
             if (error) {
                 console.error('Error loading courses:', error);
             }
-            
+
             // If no courses exist, generate them
             if (!existingCourses || existingCourses.length === 0) {
                 console.log('DEBUG: No courses found, generating new ones...');
@@ -1480,16 +1601,16 @@ class BookingApp {
             // Fallback to generating courses
             this.courses = await this.generateDailyCourses();
         }
-        
+
         await this.saveData();
-        
+
         // Show/hide tabs based on role
         const adminTab = document.querySelector('.admin-only');
         const memberTabs = document.querySelectorAll('.member-only');
-        
+
         // Debug: Show current user role
         alert(`Current user role: ${this.currentUser.role}. Admin panel will be ${this.currentUser.role === 'Admin' ? 'visible' : 'hidden'}`);
-        
+
         if (this.currentUser.role === 'Admin') {
             adminTab.style.display = 'block';
             memberTabs.forEach(tab => tab.style.display = 'none');
@@ -1515,12 +1636,12 @@ class BookingApp {
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
-        
+
         // Remove active class from all tab buttons
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active');
         });
-        
+
         // Show selected tab
         document.getElementById(tabName + 'Tab').classList.add('active');
         document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
@@ -1529,21 +1650,21 @@ class BookingApp {
     showAdminTab(tabName) {
         // Debug alert to check if function is called
         alert(`showAdminTab called with: ${tabName}`);
-        
+
         // Hide all admin tab contents
         document.querySelectorAll('.admin-tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
-        
+
         // Remove active class from all admin tab buttons
         document.querySelectorAll('.admin-tab-btn').forEach(btn => {
             btn.classList.remove('active');
         });
-        
+
         // Show selected admin tab
         document.getElementById('admin' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'Tab').classList.add('active');
         document.querySelector(`[data-admin-tab="${tabName}"]`).classList.add('active');
-        
+
         // Render content based on tab
         if (tabName === 'bookings') {
             this.renderAllBookings();
@@ -1568,7 +1689,7 @@ class BookingApp {
                 .select('*')
                 .order('date', { ascending: true })
                 .order('time', { ascending: true });
-            
+
             if (error) {
                 console.error('Error loading courses from Supabase:', error);
                 // Fallback to existing courses
@@ -1580,10 +1701,10 @@ class BookingApp {
         } catch (error) {
             console.error('Failed to load courses from Supabase:', error);
         }
-        
+
         const coursesGrid = document.getElementById('coursesGrid');
         coursesGrid.innerHTML = '';
-        
+
         if (this.courses.length === 0) {
             coursesGrid.innerHTML = `
                 <div class="empty-state">
@@ -1593,7 +1714,7 @@ class BookingApp {
             `;
             return;
         }
-        
+
         // Group courses by date for better organization
         const coursesByDate = {};
         this.courses.forEach(course => {
@@ -1602,27 +1723,27 @@ class BookingApp {
             }
             coursesByDate[course.date].push(course);
         });
-        
+
         // Render courses grouped by date
         Object.keys(coursesByDate).sort().forEach(date => {
             const dateHeader = document.createElement('div');
             dateHeader.className = 'date-header';
             dateHeader.innerHTML = `<h3>${coursesByDate[date][0].date_display}</h3>`;
             coursesGrid.appendChild(dateHeader);
-            
+
             const dayCoursesGrid = document.createElement('div');
             dayCoursesGrid.className = 'day-courses-grid';
-            
+
             coursesByDate[date].forEach(course => {
-                const userBooking = this.bookings.find(b => 
-                    b.userId === this.currentUser.id && 
-                    b.courseId === course.id && 
+                const userBooking = this.bookings.find(b =>
+                    b.userId === this.currentUser.id &&
+                    b.courseId === course.id &&
                     (b.status === 'Pending' || b.status === 'Confirmed' || b.status === 'Waiting List')
                 );
-                
+
                 const courseCard = document.createElement('div');
                 courseCard.className = 'course-card';
-                
+
                 // Determine status class based on booking status
                 let statusClass = 'status-available';
                 if (userBooking) {
@@ -1632,7 +1753,7 @@ class BookingApp {
                         statusClass = 'status-booked';
                     }
                 }
-                
+
                 courseCard.innerHTML = `
                     <h4>${course.name}</h4>
                     <div class="course-time">
@@ -1646,12 +1767,12 @@ class BookingApp {
                 `;
                 dayCoursesGrid.appendChild(courseCard);
             });
-            
+
             coursesGrid.appendChild(dayCoursesGrid);
         });
     }
 
-        handleBookCourse(courseId) {
+    handleBookCourse(courseId) {
         // Ensure courseId is treated as a number
         const id = Number(courseId);
         this.bookCourse(id);
@@ -1659,17 +1780,17 @@ class BookingApp {
 
     async bookCourse(courseId) {
         const course = this.courses.find(c => c.id === courseId);
-        const existingBooking = this.bookings.find(b => 
-            b.userId === this.currentUser.id && 
-            b.courseId === courseId && 
+        const existingBooking = this.bookings.find(b =>
+            b.userId === this.currentUser.id &&
+            b.courseId === courseId &&
             (b.status === 'Pending' || b.status === 'Confirmed' || b.status === 'Waiting List')
         );
-        
+
         if (existingBooking) {
             alert('You already have a booking for this course.');
             return;
         }
-        
+
         try {
             await this.createBooking(courseId);
         } catch (error) {
@@ -1681,15 +1802,15 @@ class BookingApp {
     async createBooking(courseId) {
         console.log('Creating booking for course:', courseId);
         console.log('Current user:', this.currentUser?.id);
-        
+
         // Ensure Supabase is ready - no local fallback
         if (!this.supabaseReady || !this.supabaseAdmin) {
             alert('Database connection not available. Please check your internet connection and try again.');
             return;
         }
-        
+
         const course = this.courses.find(c => c.id === courseId);
-        
+
         try {
             // First, verify the course exists in the database
             console.log('Checking if course exists in Supabase:', courseId, 'as number:', Number(courseId));
@@ -1697,21 +1818,21 @@ class BookingApp {
                 .from('courses')
                 .select('id')
                 .eq('id', Number(courseId));
-            
+
             console.log('Course check result:', { courseExists, courseCheckError });
-            
+
             if (courseCheckError) {
                 console.error('Course check error:', courseCheckError);
-                    throw new Error(`Error checking course existence: ${courseCheckError.message}`);
+                throw new Error(`Error checking course existence: ${courseCheckError.message}`);
             }
-            
+
             if (!courseExists || courseExists.length === 0) {
                 console.error('Course not found in database. Available courses:');
                 const { data: allCourses } = await this.supabaseAdmin.from('courses').select('id, name');
                 console.log('All courses in DB:', allCourses);
                 throw new Error(`Course with ID ${courseId} does not exist in the database. Please refresh the page to sync courses.`);
             }
-            
+
             // Only send database-compatible fields to Supabase
             const supabaseBooking = {
                 user_id: this.currentUser.id,
@@ -1719,17 +1840,17 @@ class BookingApp {
                 status: 'Pending',
                 timestamp: new Date().toISOString()
             };
-            
+
             console.log('Attempting to insert booking:', supabaseBooking);
-            
+
             const { data, error } = await this.supabaseAdmin
                 .from('bookings')
                 .insert([supabaseBooking])
                 .select()
                 .single();
-            
+
             console.log('Supabase insert response - data:', data, 'error:', error);
-            
+
             if (error) {
                 console.error('Supabase insert error details:', {
                     message: error.message,
@@ -1739,17 +1860,17 @@ class BookingApp {
                 });
                 throw error;
             }
-            
+
             if (!data) {
                 console.error('No data returned from Supabase insert');
                 throw new Error('No data returned from Supabase insert');
             }
-            
+
             // Add compatibility fields and ensure ID is set
             data.userId = data.user_id;
             data.courseId = data.course_id;
             data.id = data.id || Date.now(); // Ensure ID exists
-            
+
             // Add course data for display (stored locally, not in Supabase)
             data.courseData = course ? {
                 name: course.name,
@@ -1757,27 +1878,27 @@ class BookingApp {
                 time: course.time,
                 date: course.date
             } : null;
-            
+
             data.courseName = course?.name;
             data.courseDate = course?.date_display;
             data.courseTime = course?.time;
-            
+
             this.bookings.push(data);
             console.log('Booking successfully saved to Supabase and added to local array:', data);
             console.log('Current bookings array length:', this.bookings.length);
-            
+
             // Refresh UI
             this.renderCourses();
             this.renderUserBookings();
             if (this.currentUser.role === 'Admin') {
                 this.renderAllBookings();
             }
-            
+
             // Booking created successfully - no popup needed for smoother UX
-            
+
         } catch (error) {
             console.error('Error creating booking in Supabase:', error);
-            
+
             // Check if it's a foreign key constraint error
             if (error.code === '23503' || error.message.includes('foreign key constraint')) {
                 alert('Course synchronization issue detected. Please refresh the page and try again.');
@@ -1786,7 +1907,7 @@ class BookingApp {
                 this.renderCourses();
                 return;
             }
-            
+
             // No local storage fallback - fail immediately
             alert(`Failed to create booking: ${error.message}. Please check your internet connection and try again.`);
         }
@@ -1796,7 +1917,7 @@ class BookingApp {
     renderUserBookings() {
         const userBookings = document.getElementById('userBookings');
         const myBookings = this.bookings.filter(b => b.userId === this.currentUser.id);
-        
+
         if (myBookings.length === 0) {
             userBookings.innerHTML = `
                 <div class="empty-state">
@@ -1806,15 +1927,15 @@ class BookingApp {
             `;
             return;
         }
-        
+
         userBookings.innerHTML = '';
-        
+
         // Sort bookings by timestamp in descending order (latest first)
         const sortedMyBookings = [...myBookings].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        
+
         sortedMyBookings.forEach(booking => {
             let course = this.courses.find(c => c.id === booking.courseId);
-            
+
             // If course not found in current courses, try to reconstruct from booking data
             if (!course && booking.courseData) {
                 course = booking.courseData;
@@ -1827,12 +1948,12 @@ class BookingApp {
                 };
                 console.warn(`Course not found for booking ${booking.id}, using fallback data`);
             }
-            
+
             const bookingItem = document.createElement('div');
             bookingItem.className = 'booking-item';
-            
+
             console.log('Rendering booking:', booking.id, 'Status:', booking.status);
-            
+
             let cancelButton = '';
             if (booking.status === 'Confirmed' || booking.status === 'Pending' || booking.status === 'Waiting List') {
                 console.log('Adding cancel button for booking:', booking.id);
@@ -1846,12 +1967,12 @@ class BookingApp {
             } else {
                 console.log('No cancel button for booking:', booking.id, 'Status:', booking.status);
             }
-            
+
             // Safe property access with fallbacks
             const courseName = course.name || 'Unknown Course';
             const courseDate = course.date_display || 'Unknown Date';
             const courseTime = course.time || 'Unknown Time';
-            
+
             bookingItem.innerHTML = `
                 <div class="booking-info">
                     <h5>${courseName}</h5>
@@ -1871,7 +1992,7 @@ class BookingApp {
 
     renderAllBookings() {
         const allBookings = document.getElementById('allBookings');
-        
+
         // Enhanced debug logging
         console.log('=== ADMIN PANEL DEBUG ===');
         console.log('Rendering all bookings. Total bookings:', this.bookings.length);
@@ -1884,10 +2005,10 @@ class BookingApp {
         console.log('Course IDs:', this.courses.map(c => c.id));
         console.log('User IDs:', this.users.map(u => u.id));
         console.log('========================');
-        
+
         // Debug information
         console.log('Rendering all bookings - total count:', this.bookings.length);
-        
+
         if (this.bookings.length === 0) {
             allBookings.innerHTML = `
                 <div class="empty-state">
@@ -1897,17 +2018,17 @@ class BookingApp {
             `;
             return;
         }
-        
+
         allBookings.innerHTML = '';
-        
+
         // Sort bookings by timestamp in descending order (latest first)
         const sortedBookings = [...this.bookings].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        
+
         // Render all bookings
         sortedBookings.forEach(booking => {
             const course = this.courses.find(c => c.id === booking.courseId);
             const user = this.users.find(u => u.id === booking.userId);
-            
+
             // Log warning if course or user not found, but continue rendering with fallback data
             if (!course || !user) {
                 console.warn(`Missing data for booking ${booking.id}: course=${!!course}, user=${!!user}`);
@@ -1916,7 +2037,7 @@ class BookingApp {
                 if (!user) console.warn('User not found for userId:', booking.userId, 'Available users:', this.users.map(u => u.id));
                 // Continue rendering with fallback data instead of skipping
             }
-            
+
             const bookingItem = document.createElement('div');
             bookingItem.className = `booking-item ${booking.status === 'Cancelled' ? 'cancelled-booking' : ''}`;
 
@@ -1939,7 +2060,7 @@ class BookingApp {
                     </div>
                 `;
             }
-            
+
             // Enhanced course lookup with fallback data
             let courseInfo = course;
             if (!courseInfo && booking.courseData) {
@@ -1951,7 +2072,7 @@ class BookingApp {
                     time: booking.courseTime || 'Unknown Time'
                 };
             }
-            
+
             // Enhanced user lookup with fallback data
             let userInfo = user;
             if (!userInfo) {
@@ -1962,14 +2083,14 @@ class BookingApp {
                     last_name: booking.userLastName || booking.user_last_name || 'User'
                 };
             }
-            
+
             // Safe property access with fallbacks
             const courseName = courseInfo.name || 'Unknown Course';
             const courseDate = courseInfo.date_display || 'Unknown Date';
             const courseTime = courseInfo.time || 'Unknown Time';
             const userFirstName = userInfo.firstName || userInfo.first_name || 'Unknown';
             const userLastName = userInfo.lastName || userInfo.last_name || 'User';
-            
+
             bookingItem.innerHTML = `
                 <div class="booking-info">
                     <h5>${courseName} ${booking.status === 'Cancelled' ? '(CANCELLED)' : ''}</h5>
@@ -1991,30 +2112,30 @@ class BookingApp {
     renderPendingBookings() {
         const pendingBookingsContainer = document.getElementById('pendingBookings');
         const pendingBookingsList = this.bookings.filter(b => b.status === 'Pending');
-        
+
         if (pendingBookingsList.length === 0) {
             pendingBookingsContainer.innerHTML = '<p class="empty-state">No pending bookings found.</p>';
             return;
         }
-        
+
         pendingBookingsContainer.innerHTML = '';
-        
+
         // Sort by timestamp (latest first)
         const sortedPending = [...pendingBookingsList].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        
+
         sortedPending.forEach(booking => {
             const course = this.courses.find(c => c.id === booking.courseId);
             const user = this.users.find(u => u.id === booking.userId);
-            
+
             // Skip rendering if course or user not found
             if (!course || !user) {
                 console.warn(`Missing data for pending booking ${booking.id}: course=${!!course}, user=${!!user}`);
                 return;
             }
-            
+
             const bookingItem = document.createElement('div');
             bookingItem.className = 'booking-item pending-booking';
-            
+
             // Enhanced course lookup with fallback data
             let courseInfo = course;
             if (!courseInfo && booking.courseData) {
@@ -2026,14 +2147,14 @@ class BookingApp {
                     time: booking.courseTime || 'Unknown Time'
                 };
             }
-            
+
             // Safe property access with fallbacks
             const courseName = courseInfo.name || 'Unknown Course';
             const courseDate = courseInfo.date_display || 'Unknown Date';
             const courseTime = courseInfo.time || 'Unknown Time';
             const userFirstName = user.firstName || user.first_name || 'Unknown';
             const userLastName = user.lastName || user.last_name || 'User';
-            
+
             bookingItem.innerHTML = `
                 <div class="booking-info">
                     <h5>${courseName}</h5>
@@ -2056,21 +2177,21 @@ class BookingApp {
                         Waiting List
                     </button>
                 </div>
-            `;             pendingBookingsContainer.appendChild(bookingItem);
+            `; pendingBookingsContainer.appendChild(bookingItem);
         });
     }
 
     renderCancelledBookings() {
         const cancelledBookingsContainer = document.getElementById('cancelledBookings');
         const cancelledBookingsList = this.bookings.filter(b => b.status === 'Cancelled');
-        
+
         if (cancelledBookingsList.length === 0) {
             cancelledBookingsContainer.innerHTML = '<p class="empty-state">No cancelled bookings found.</p>';
             return;
         }
-        
+
         cancelledBookingsContainer.innerHTML = '';
-        
+
         // Add notification header
         const notificationDiv = document.createElement('div');
         notificationDiv.className = 'cancellation-notification';
@@ -2081,23 +2202,23 @@ class BookingApp {
             </div>
         `;
         cancelledBookingsContainer.appendChild(notificationDiv);
-        
+
         // Sort by cancellation date (latest first)
         const sortedCancelled = [...cancelledBookingsList].sort((a, b) => new Date(b.cancelledAt) - new Date(a.cancelledAt));
-        
+
         sortedCancelled.forEach(booking => {
             const course = this.courses.find(c => c.id === booking.courseId);
             const user = this.users.find(u => u.id === booking.userId);
-            
+
             // Skip rendering if course or user not found
             if (!course || !user) {
                 console.warn(`Missing data for cancelled booking ${booking.id}: course=${!!course}, user=${!!user}`);
                 return;
             }
-            
+
             const bookingItem = document.createElement('div');
             bookingItem.className = 'booking-item cancelled-booking';
-            
+
             // Enhanced course lookup with fallback data
             let courseInfo = course;
             if (!courseInfo && booking.courseData) {
@@ -2109,14 +2230,14 @@ class BookingApp {
                     time: booking.courseTime || 'Unknown Time'
                 };
             }
-            
+
             // Safe property access with fallbacks
             const courseName = courseInfo.name || 'Unknown Course';
             const courseDate = courseInfo.date_display || 'Unknown Date';
             const courseTime = courseInfo.time || 'Unknown Time';
             const userFirstName = user.firstName || user.first_name || 'Unknown';
             const userLastName = user.lastName || user.last_name || 'User';
-            
+
             bookingItem.innerHTML = `
                 <div class="booking-info">
                     <h5>${courseName} (CANCELLED)</h5>
@@ -2129,21 +2250,21 @@ class BookingApp {
                 <div class="booking-status status-cancelled">
                     Cancelled
                 </div>
-            `;             cancelledBookingsContainer.appendChild(bookingItem);
+            `; cancelledBookingsContainer.appendChild(bookingItem);
         });
     }
 
     renderWaitingListBookings() {
         const waitingListContainer = document.getElementById('waitingListBookings');
         const waitingListBookings = this.bookings.filter(b => b.status === 'Waiting List');
-        
+
         if (waitingListBookings.length === 0) {
             waitingListContainer.innerHTML = '<p class="empty-state">No bookings on waiting list.</p>';
             return;
         }
-        
+
         waitingListContainer.innerHTML = '';
-        
+
         // Add notification header
         const notificationDiv = document.createElement('div');
         notificationDiv.className = 'waiting-list-notification';
@@ -2154,20 +2275,20 @@ class BookingApp {
             </div>
         `;
         waitingListContainer.appendChild(notificationDiv);
-        
+
         // Sort by timestamp (latest first)
         const sortedWaitingList = [...waitingListBookings].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        
+
         sortedWaitingList.forEach(booking => {
             const course = this.courses.find(c => c.id === booking.courseId);
             const user = this.users.find(u => u.id === booking.userId);
-            
+
             // Skip rendering if user not found
             if (!user) {
                 console.warn(`Missing user data for waiting list booking ${booking.id}`);
                 return;
             }
-            
+
             // Enhanced course lookup with fallback data
             let courseInfo = course;
             if (!courseInfo && booking.courseData) {
@@ -2180,17 +2301,17 @@ class BookingApp {
                 };
                 console.warn(`Course not found for waiting list booking ${booking.id}, using fallback data`);
             }
-            
+
             const bookingItem = document.createElement('div');
             bookingItem.className = 'booking-item waiting-list-booking';
-            
+
             // Safe property access with fallbacks
             const courseName = courseInfo.name || 'Unknown Course';
             const courseDate = courseInfo.date_display || 'Unknown Date';
             const courseTime = courseInfo.time || 'Unknown Time';
             const userFirstName = user.firstName || user.first_name || 'Unknown';
             const userLastName = user.lastName || user.last_name || 'User';
-            
+
             bookingItem.innerHTML = `
                 <div class="booking-info">
                     <h5>${courseName} (WAITING LIST)</h5>
@@ -2218,17 +2339,17 @@ class BookingApp {
     async updateBookingStatus(bookingId, newStatus) {
         console.log('🔄 updateBookingStatus called:', { bookingId, newStatus });
         console.log('📊 Current bookings count before update:', this.bookings.length);
-        
+
         const booking = this.bookings.find(b => b.id === bookingId);
         if (!booking) {
             console.error('❌ Booking not found in local array:', bookingId);
             throw new Error('Booking not found');
         }
-        
+
         console.log('📋 Found booking to update:', booking);
         const oldStatus = booking.status;
         booking.status = newStatus;
-        
+
         if (this.supabaseReady && this.supabaseAdmin) {
             try {
                 console.log('🔄 Updating booking in Supabase...');
@@ -2237,7 +2358,7 @@ class BookingApp {
                     .update({ status: newStatus })
                     .eq('id', bookingId)
                     .select();
-                
+
                 if (error) {
                     console.error('❌ Supabase error updating booking status:', error);
                     // Revert local change
@@ -2252,10 +2373,10 @@ class BookingApp {
                 throw error;
             }
         }
-        
+
         console.log('📊 Current bookings count after update:', this.bookings.length);
         console.log('📋 Updated booking in array:', this.bookings.find(b => b.id === bookingId));
-        
+
         // Don't call saveData() here since we already updated Supabase directly
         // The real-time system will handle UI updates automatically
         console.log('🎯 updateBookingStatus completed successfully - waiting for real-time update');
@@ -2264,54 +2385,54 @@ class BookingApp {
     async cancelBooking(bookingId) {
         console.log('cancelBooking called with ID:', bookingId);
         console.log('Current user:', this.currentUser);
-        
+
         // Check if user is logged in
         if (!this.currentUser) {
             alert('You must be logged in to cancel a booking.');
             return;
         }
-        
+
         // Ensure Supabase is ready - no local fallback
         if (!this.supabaseReady || !this.supabaseAdmin) {
             alert('Database connection not available. Please check your internet connection and try again.');
             return;
         }
-        
+
         if (confirm('Are you sure you want to cancel this booking?')) {
             const booking = this.bookings.find(b => b.id === bookingId);
             console.log('Found booking:', booking);
-            
+
             // Check if booking belongs to current user (unless admin)
             if (booking && this.currentUser.role !== 'Admin' && booking.userId !== this.currentUser.id) {
                 alert('You can only cancel your own bookings.');
                 return;
             }
-            
+
             if (booking) {
                 try {
                     console.log('Cancelling booking in Supabase...');
                     const { data, error } = await this.supabaseAdmin
                         .from('bookings')
-                        .update({ 
+                        .update({
                             status: 'Cancelled',
                             cancellation_date: new Date().toISOString()
                         })
                         .eq('id', bookingId)
                         .select();
-                    
+
                     if (error) {
                         console.error('Supabase update error:', error);
                         alert(`Failed to cancel booking in database: ${error.message}`);
                         return;
                     }
-                    
+
                     console.log('Supabase update successful:', data);
-                    
+
                     // Update local booking object
                     booking.status = 'Cancelled';
                     booking.cancelledAt = new Date().toISOString();
                     booking.cancelledBy = 'member';
-                    
+
                     // Refresh UI
                     this.renderUserBookings();
                     await this.renderCourses();
@@ -2321,10 +2442,10 @@ class BookingApp {
                         this.renderWaitingListBookings();
                         this.renderCancelledBookings();
                     }
-                    
+
                     // Booking cancelled successfully - no popup needed for smoother UX
                     console.log('Cancellation process completed');
-                    
+
                 } catch (error) {
                     console.error('Error cancelling booking in Supabase:', error);
                     alert(`Failed to cancel booking: ${error.message}. Please check your internet connection and try again.`);
@@ -2342,14 +2463,14 @@ class BookingApp {
     renderAllUsers() {
         const allUsers = document.getElementById('allUsers');
         allUsers.innerHTML = '';
-        
+
         this.users.forEach(user => {
             const userItem = document.createElement('div');
             userItem.className = 'user-item';
-            const profilePictureHtml = user.profilePicture || user.profile_picture ? 
-                `<img src="${user.profilePicture || user.profile_picture}" alt="Profile" class="profile-picture-small">` : 
+            const profilePictureHtml = user.profilePicture || user.profile_picture ?
+                `<img src="${user.profilePicture || user.profile_picture}" alt="Profile" class="profile-picture-small">` :
                 `<div class="profile-picture-placeholder-small">${user.firstName.charAt(0)}${user.lastName.charAt(0)}</div>`;
-            
+
             userItem.innerHTML = `
                 <div class="user-info">
                     <div class="user-profile">
@@ -2376,46 +2497,46 @@ class BookingApp {
     async addUser(firstName, lastName, email, password, role, profilePictureFile = null) {
         // Generate username from email (part before @)
         const username = email.split('@')[0];
-        
+
         // Check if username already exists
         if (this.users.find(u => u.username === username)) {
             alert('A user with this email prefix already exists. Please choose a different email.');
             return false;
         }
-        
+
         // Check if email already exists
         if (this.users.find(u => u.email === email)) {
             alert('Email already exists. Please choose a different email.');
             return false;
         }
-        
+
         let profilePictureUrl = null;
-        
+
         // Handle profile picture upload if provided
         if (profilePictureFile && this.storageManager) {
             console.log('Uploading profile picture...');
-            
+
             // Validate file
             const validationErrors = this.storageManager.validateFile(profilePictureFile, 'image');
             if (validationErrors.length > 0) {
                 alert(`Profile picture upload failed: ${validationErrors.join(', ')}`);
                 return false;
             }
-            
+
             // Show upload progress
             this.showUploadProgress('Uploading profile picture...');
-            
+
             try {
                 const uploadResult = await this.storageManager.uploadFile(
-                    profilePictureFile, 
-                    STORAGE_BUCKETS.PROFILES, 
+                    profilePictureFile,
+                    STORAGE_BUCKETS.PROFILES,
                     'users',
                     Math.max(...this.users.map(u => u.id), 0) + 1
                 );
-                
+
                 if (uploadResult.success) {
                     profilePictureUrl = await this.storageManager.getPublicUrl(
-                        STORAGE_BUCKETS.PROFILES, 
+                        STORAGE_BUCKETS.PROFILES,
                         uploadResult.path
                     );
                     console.log('Profile picture uploaded successfully:', profilePictureUrl);
@@ -2430,10 +2551,10 @@ class BookingApp {
                 this.showUploadStatus('Upload failed. Continuing without profile picture.', 'error');
                 // Continue without profile picture
             }
-            
+
             this.hideUploadProgress();
         }
-        
+
         const newUser = {
             id: Math.max(...this.users.map(u => u.id), 0) + 1,
             first_name: firstName,
@@ -2448,9 +2569,9 @@ class BookingApp {
             lastName: lastName,
             profilePicture: profilePictureUrl
         };
-        
+
         console.log('Adding user. Supabase ready:', this.supabaseReady);
-        
+
         if (this.supabaseReady && this.supabaseAdmin) {
             try {
                 // Create clean object with only database column names
@@ -2463,18 +2584,18 @@ class BookingApp {
                     role: role,
                     profile_picture: profilePictureUrl
                 };
-                
+
                 console.log('Attempting to insert user into Supabase:', supabaseUser);
                 const { data, error } = await this.supabaseAdmin
                     .from('users')
                     .insert([supabaseUser])
                     .select()
                     .single();
-                
+
                 console.log('Supabase insert result:', { data, error });
-                
+
                 if (error) throw error;
-                
+
                 console.log('User successfully added to Supabase, reloading data...');
                 // Reload all users from Supabase to ensure synchronization
                 await this.loadFromSupabase();
@@ -2487,7 +2608,7 @@ class BookingApp {
             console.log('Supabase not ready, adding user to local storage');
             this.users.push(newUser);
         }
-        
+
         await this.saveData();
         this.renderAllUsers();
         return true;
@@ -2531,7 +2652,7 @@ class BookingApp {
         statusDiv.className = `upload-status ${type}`;
         statusDiv.textContent = message;
         statusDiv.style.display = 'block';
-        
+
         // Auto-hide after 3 seconds
         setTimeout(() => {
             if (statusDiv) {
@@ -2543,15 +2664,15 @@ class BookingApp {
     async deleteUser(userId) {
         console.log('deleteUser called with ID:', userId);
         console.log('Current user ID:', this.currentUser.id);
-        
+
         if (userId === this.currentUser.id) {
             alert('You cannot delete your own account.');
             return;
         }
-        
+
         if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
             console.log('User confirmed deletion');
-            
+
             if (this.supabaseReady && this.supabaseAdmin) {
                 try {
                     console.log('Deleting user bookings from Supabase...');
@@ -2560,20 +2681,20 @@ class BookingApp {
                         .from('bookings')
                         .delete()
                         .eq('user_id', userId);
-                    
+
                     if (bookingsError) {
                         console.error('Error deleting bookings:', bookingsError);
                         throw bookingsError;
                     }
                     console.log('User bookings deleted from Supabase');
-                    
+
                     console.log('Deleting user from Supabase...');
                     // Delete user
                     const { error: userError } = await this.supabaseAdmin
                         .from('users')
                         .delete()
                         .eq('id', userId);
-                    
+
                     if (userError) {
                         console.error('Error deleting user:', userError);
                         throw userError;
@@ -2587,22 +2708,22 @@ class BookingApp {
             } else {
                 console.log('Supabase not ready, deleting from local storage only');
             }
-            
+
             console.log('Removing user from local arrays...');
             const usersBefore = this.users.length;
             const bookingsBefore = this.bookings.length;
-            
+
             this.users = this.users.filter(u => u.id !== userId);
             // Also remove all bookings for this user (check both userId and user_id properties)
             this.bookings = this.bookings.filter(b => b.userId !== userId && b.user_id !== userId);
-            
+
             console.log(`Users: ${usersBefore} -> ${this.users.length}`);
             console.log(`Bookings: ${bookingsBefore} -> ${this.bookings.length}`);
-            
+
             await this.saveData();
             this.renderAllUsers();
             this.renderAllBookings();
-            
+
             alert('User deleted successfully.');
             console.log('User deletion completed');
         } else {
@@ -2617,7 +2738,7 @@ class BookingApp {
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            
+
             try {
                 if (await this.login(email, password)) {
                     document.getElementById('loginError').textContent = '';
@@ -2638,11 +2759,11 @@ class BookingApp {
             console.log('Button classes:', logoutBtn.className);
             console.log('Button style display:', window.getComputedStyle(logoutBtn).display);
             console.log('Button style visibility:', window.getComputedStyle(logoutBtn).visibility);
-            
+
             // Make the logout button more visible
             logoutBtn.style.fontWeight = 'bold';
             logoutBtn.style.border = '2px solid #64748b';
-            
+
             logoutBtn.addEventListener('click', (event) => {
                 console.log('=== LOGOUT BUTTON CLICKED ===');
                 console.log('Event:', event);
@@ -2651,7 +2772,7 @@ class BookingApp {
                 event.stopPropagation();
                 this.logout();
             });
-            
+
             // Test if button is clickable
             logoutBtn.addEventListener('mouseenter', () => {
                 console.log('Mouse entered logout button - hover working');
@@ -2659,7 +2780,7 @@ class BookingApp {
                 logoutBtn.style.transform = 'translateY(-2px)';
                 logoutBtn.style.boxShadow = '0 6px 15px rgba(0, 0, 0, 0.2)';
             });
-            
+
             logoutBtn.addEventListener('mouseleave', () => {
                 console.log('Mouse left logout button');
                 logoutBtn.style.backgroundColor = '#ffffff';
@@ -2677,21 +2798,21 @@ class BookingApp {
                 newLogoutBtn.textContent = 'Abmelden';
                 newLogoutBtn.style.fontWeight = 'bold';
                 newLogoutBtn.style.border = '2px solid #64748b';
-                
+
                 newLogoutBtn.addEventListener('click', (event) => {
                     console.log('=== NEW LOGOUT BUTTON CLICKED ===');
                     event.preventDefault();
                     event.stopPropagation();
                     this.logout();
                 });
-                
+
                 navUser.appendChild(newLogoutBtn);
                 console.log('Created new logout button');
             } else {
                 console.error('Nav user container not found!');
             }
         }
-        
+
 
 
         // Tab navigation
@@ -2724,7 +2845,7 @@ class BookingApp {
             const password = document.getElementById('newPassword').value;
             const role = document.getElementById('newRole').value;
             const profilePictureFile = document.getElementById('newProfilePicture').files[0];
-            
+
             try {
                 if (await this.addUser(firstName, lastName, email, password, role, profilePictureFile)) {
                     document.getElementById('addUserModal').classList.remove('active');

@@ -146,7 +146,7 @@ class RealtimeBookingSystem {
         console.log('📊 Current bookings count before realtime update:', this.app?.bookings?.length || 0);
         
         switch (eventType) {
-            case 'INSERT':
+            case 'INSERT': {
                 console.log('➕ New booking created:', newRecord);
                 const isMyBooking = this.app.currentUser && this.app.currentUser.id === newRecord.user_id;
                 const isAdmin = this.app.currentUser && (this.app.currentUser.role === 'Admin' || this.app.currentUser.role === 'admin');
@@ -168,8 +168,9 @@ class RealtimeBookingSystem {
                     console.log('📊 Bookings count after INSERT:', this.app.bookings.length);
                 }
                 break;
+            }
                 
-            case 'UPDATE':
+            case 'UPDATE': {
                 console.log('✏️ Booking updated:', { old: oldRecord, new: newRecord });
                 
                 // Check for status changes and notify user
@@ -230,8 +231,9 @@ class RealtimeBookingSystem {
                     console.log('📊 Bookings count after UPDATE:', this.app.bookings.length);
                 }
                 break;
+            }
                 
-            case 'DELETE':
+            case 'DELETE': {
                 console.log('🗑️ Booking deleted:', oldRecord);
                 const isMyBooking = this.app.currentUser && this.app.currentUser.id === oldRecord.user_id;
                 const isAdmin = this.app.currentUser && (this.app.currentUser.role === 'Admin' || this.app.currentUser.role === 'admin');
@@ -245,6 +247,7 @@ class RealtimeBookingSystem {
                     console.log(`📊 Bookings count: ${beforeCount} → ${this.app.bookings.length}`);
                 }
                 break;
+            }
         }
 
         console.log('🎯 Refreshing UI after realtime change...');

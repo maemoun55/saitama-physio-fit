@@ -1,14 +1,20 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Physio Fit">
     <meta name="theme-color" content="#00AEEF">
     <title>Saitama Physio Fit - Buchungssystem</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="logo.png">
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <!-- Login Screen -->
     <div id="loginScreen" class="screen active">
@@ -39,6 +45,8 @@
             </div>
             <div class="nav-user">
                 <span id="welcomeUser"></span>
+                <button id="notificationPermissionBtn" class="btn-secondary" title="Benachrichtigungen aktivieren"
+                    style="display:none;">🔔</button>
                 <button id="logoutBtn" class="btn-secondary">Abmelden</button>
             </div>
         </nav>
@@ -65,7 +73,7 @@
         <div id="bookingsTab" class="tab-content">
             <div class="container">
                 <h3>Meine Buchungen</h3>
-                
+
                 <div id="userBookings" class="bookings-list">
                     <!-- User bookings will be populated by JavaScript -->
                 </div>
@@ -76,14 +84,14 @@
         <div id="calendarTab" class="tab-content">
             <div class="container">
                 <h3>Kalender</h3>
-                
+
                 <div class="calendar-container">
                     <div class="calendar-header">
                         <button id="prevMonth" class="calendar-nav-btn">&lt;</button>
                         <h4 id="currentMonth"></h4>
                         <button id="nextMonth" class="calendar-nav-btn">&gt;</button>
                     </div>
-                    
+
                     <div class="calendar-grid">
                         <div class="calendar-weekdays">
                             <div class="weekday">Mo</div>
@@ -99,7 +107,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="selected-date-courses">
                     <h4 id="selectedDateTitle">Wählen Sie ein Datum aus</h4>
                     <div id="selectedDateCourses" class="courses-grid">
@@ -113,7 +121,7 @@
         <div id="adminTab" class="tab-content">
             <div class="container">
                 <h3>Admin-Panel</h3>
-                
+
                 <!-- Admin Sub-tabs -->
                 <div class="admin-tabs">
                     <button class="admin-tab-btn active" data-admin-tab="pending">Ausstehende Buchungen</button>
@@ -229,5 +237,22 @@
     <script src="config.js"></script>
     <script src="temp_script.js"></script>
     <script src="realtime-integration-updated.js"></script>
+
+    <!-- Register Service Worker for push notifications & PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(function (reg) {
+                        console.log('[SW] Registered:', reg.scope);
+                        window._swRegistration = reg;
+                    })
+                    .catch(function (err) {
+                        console.warn('[SW] Registration failed:', err);
+                    });
+            });
+        }
+    </script>
 </body>
+
 </html>
